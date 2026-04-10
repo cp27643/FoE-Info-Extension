@@ -27,6 +27,7 @@ import {
   donation2DIV,
   donationDIV2,
   GBselected,
+  gbStateCache,
   greatbuilding,
   donationPercent,
   donationSuffix,
@@ -49,7 +50,7 @@ var safe = [];
 var remaining = 0;
 var Donation = new BigNumber(0);
 var RewardFP = new BigNumber(0);
-var Profit = 0;
+var Profit = new BigNumber(0);
 var Percent = new BigNumber(0);
 const darkMode = false; // dont use darkMode until we sort out a dark theme to use
 
@@ -59,9 +60,36 @@ if (storage.get('useNewDonationPanel') != null)
 if (url && url.hasOwnProperty('sheetGameURL'))
   googleSheetGame = url.sheetGameURL;
 
-export function getConstruction(msg) {
+export function getConstruction(msg, requestData) {
   rankings = msg.responseData.rankings;
-  console.debug('rankings', rankings);
+  const buildingId =
+    requestData &&
+    requestData[0] &&
+    requestData[0].requestData &&
+    requestData[0].requestData[0];
+  console.log(
+    '[GB] getConstruction — buildingId:',
+    buildingId,
+    'cache keys:',
+    Object.keys(gbStateCache),
+  );
+  if (buildingId && gbStateCache[buildingId]) {
+    const cached = gbStateCache[buildingId];
+    GBselected.total = cached.total;
+    GBselected.current = cached.current;
+    GBselected.level = cached.level;
+    GBselected.name = cached.name;
+    GBselected.max_level = cached.max_level;
+    GBselected.connected = cached.connected;
+    console.log('[GB] Loaded from cache:', cached);
+  } else {
+    console.warn(
+      '[GB] No cache entry for buildingId=%s — GBselected.total=%d, current=%d (stale)',
+      buildingId,
+      GBselected.total,
+      GBselected.current,
+    );
+  }
   showGreatBuldingDonation();
 }
 
@@ -100,6 +128,8 @@ export function showGreatBuldingDonation() {
   console.debug('rankings', rankings);
   if (rankings.length) {
     var Rank = 0;
+    var myRank = 0;
+    var myFP = 0;
 
     for (var j = 0; j < rankings.length; j++) {
       const place = rankings[j];
@@ -114,6 +144,10 @@ export function showGreatBuldingDonation() {
         if (Rank < 6) {
           if (place.forge_points) Top[Rank - 1] = place.forge_points;
           else Top[Rank - 1] = 0;
+          if (place.player.is_self || place.player.player_id == PlayerID) {
+            myRank = Rank;
+            myFP = place.forge_points || 0;
+          }
           if (place.reward.strategy_point_amount)
             GBrewards[Rank - 1] = new BigNumber(
               place.reward.strategy_point_amount,
@@ -197,7 +231,7 @@ export function showGreatBuldingDonation() {
     if (GBselected.connected == null) {
       olddonationHTML += '<p class="red">*** DISCONNECTED ***</p>';
     }
-    if (GBselected.level == GBselected.max_level) {
+    if (GBselected.max_level > 0 && GBselected.level == GBselected.max_level) {
       olddonationHTML += '<p class="red">*** LOCKED ***</p>';
     }
     olddonationHTML += checkInactive();
@@ -205,68 +239,150 @@ export function showGreatBuldingDonation() {
     donationDIV.innerHTML = '';
     donationDIV.style.display = 'block';
 
-    // Check Top1
-    getPlaceValues(1);
-    getSafe(1);
-    console.debug('RewardFP/Donation/Profit ', RewardFP, Donation, Profit);
-    if (Donation.isLessThan(BigNumber(remaining))) {
-      if (Profit >= 0) {
-        olddonationHTML += `<p class="invest-good">1st Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
-        newdonationHTML += gbTabSafe(
-          1,
-          currentPercent,
-          Donation,
-          RewardFP,
-          donateCustom,
-          donateSuggest,
-          GBrewards,
-          GBselected.connected,
-          GBselected.level == GBselected.max_level,
-          safe,
-        );
-      } else {
-        olddonationHTML += `<p class="invest-bad">1st Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${
-          Profit * -1
-        }<br>`;
-        newdonationHTML += gbTabNotSafe(
-          1,
-          currentPercent,
-          Donation,
-          RewardFP,
-          donateCustom,
-          donateSuggest,
-          GBrewards,
-          GBselected.connected,
-          GBselected.level == GBselected.max_level,
-          safe,
-        );
+    console.log(
+      '[GB] showGreatBuldingDonation: player=%s, GB=%s Lv%d, current=%d, total=%d, remaining=%d, ArcBonus=%d%, GBrewards=%o, Top=%o, myRank=%d, myFP=%d',
+      PlayerName,
+      GBselected.name,
+      GBselected.level,
+      GBselected.current,
+      GBselected.total,
+      GBselected.total - GBselected.current,
+      City.ArcBonus,
+      GBrewards,
+      Top,
+      myRank,
+      myFP,
+    );
+
+    if (myRank > 0) {
+      // User already holds a ranked position on this GB
+      remaining = GBselected.total - GBselected.current;
+
+      // Find the biggest threat from positions below (or any fresh contributor).
+      // The worst case: one adversary contributes ALL of remaining on top of
+      // whatever FP they already have.
+      var maxBelowFP = 0;
+      for (var k = myRank; k < 6; k++) {
+        // Top[myRank] is the person one rank below the user, etc.
+        if (Top[k] > maxBelowFP) maxBelowFP = Top[k];
       }
-      if (GBrewards[0]) {
-        olddonationHTML += getFriendlyDonation(
-          donateCustom,
-          RewardFP,
-          currentPercent,
-          Donation,
+      const maxThreat = maxBelowFP + remaining;
+      // Locked if no one can reach our FP total (ties are safe — we contributed first)
+      const isLocked = new BigNumber(myFP).isGreaterThanOrEqualTo(maxThreat);
+
+      RewardFP = new BigNumber(GBrewards[myRank - 1])
+        .multipliedBy(1 + City.ArcBonus / 100)
+        .dp(0);
+      donateCustom = new BigNumber(GBrewards[myRank - 1])
+        .multipliedBy(currentPercent)
+        .div(100)
+        .dp(0);
+      const ordinals = ['1st', '2nd', '3rd', '4th', '5th'];
+      const posLabel = ordinals[myRank - 1];
+
+      console.log(
+        '[GB] User holds %s place — myFP=%d, remaining=%d, maxBelowFP=%d, maxThreat=%d, locked=%s',
+        posLabel,
+        myFP,
+        remaining,
+        maxBelowFP,
+        maxThreat,
+        isLocked,
+      );
+
+      if (isLocked) {
+        Donation = new BigNumber(myFP);
+        Profit = RewardFP.minus(myFP);
+        Percent =
+          myFP > 0 ? Profit.multipliedBy(100).idiv(myFP) : new BigNumber(0);
+
+        if (Profit.isGreaterThanOrEqualTo(0)) {
+          olddonationHTML += `<p class="invest-good">${posLabel} Place &#x2714;<br>`;
+          olddonationHTML += `Your ${myFP}FP locks this position<br>`;
+          olddonationHTML += `<span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+        } else {
+          olddonationHTML += `<p class="invest-fair">${posLabel} Place &#x2714;<br>`;
+          olddonationHTML += `Your ${myFP}FP locks this position<br>`;
+          olddonationHTML += `<span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
+        }
+        if (GBrewards[myRank - 1]) {
+          olddonationHTML += `BE: ${RewardFP}FP</p>`;
+        } else olddonationHTML += `</p>`;
+      } else {
+        // How much more the user needs so that:
+        //   myFP + additional >= maxBelowFP + (remaining - additional)
+        //   2 * additional >= maxBelowFP + remaining - myFP
+        //   additional >= ceil((maxBelowFP + remaining - myFP) / 2)
+        // Ties are safe because we contributed first.
+        const gap = maxBelowFP + remaining - myFP;
+        const additionalNeeded = new BigNumber(
+          Math.max(0, Math.ceil(gap / 2)),
         );
-        olddonationHTML += `BE: ${RewardFP}FP</p>`;
-      } else olddonationHTML += `</p>`;
-      if (PlayerName == MyInfo.name && Donation - donateSuggest[0] > 0)
-        olddonationHTML += `<p class=""><span data-i18n="add">Add</span> ${
-          currentPercent ?
-            (Donation - donateCustom) * 2
-          : (Donation - donate190) * 2
-        }FP <span data-i18n="safe">to make safe for</span> ${currentPercent ? currentPercent / 100 : '1.9'}</p>`;
-      copyText += getDonations(1, safe, donateSuggest);
-    }
-    // not Top1, Check Top2
-    else {
-      getPlaceValues(2);
-      getSafe(2);
+        const totalInvestment = new BigNumber(myFP).plus(additionalNeeded);
+        Donation = additionalNeeded;
+        Profit = RewardFP.minus(totalInvestment);
+        Percent =
+          additionalNeeded.isGreaterThan(0) ?
+            Profit.multipliedBy(100).idiv(additionalNeeded)
+          : new BigNumber(0);
+
+        if (Profit.isGreaterThanOrEqualTo(0)) {
+          olddonationHTML += `<p class="invest-good">${posLabel} Place<br>`;
+        } else {
+          olddonationHTML += `<p class="invest-bad">${posLabel} Place<br>`;
+        }
+        olddonationHTML += `<span data-i18n="lock">Lock</span>: +${additionalNeeded}FP (you have ${myFP}FP)<br>`;
+        if (Profit.isGreaterThanOrEqualTo(0)) {
+          olddonationHTML += `<span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+        } else {
+          olddonationHTML += `<span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
+        }
+        if (GBrewards[myRank - 1]) {
+          olddonationHTML += getFriendlyDonation(
+            donateCustom,
+            RewardFP,
+            currentPercent,
+            additionalNeeded,
+          );
+          olddonationHTML += `BE: ${RewardFP}FP</p>`;
+        } else olddonationHTML += `</p>`;
+      }
+
+      getSafe(myRank);
+      copyText += getDonations(myRank, safe, donateSuggest);
+
+      newdonationHTML += gbTabSafe(
+        myRank,
+        currentPercent,
+        isLocked ?
+          new BigNumber(myFP)
+        : new BigNumber(Math.ceil((maxBelowFP + remaining - myFP) / 2)),
+        RewardFP,
+        donateCustom,
+        donateSuggest,
+        GBrewards,
+        GBselected.connected,
+        GBselected.max_level > 0 && GBselected.level == GBselected.max_level,
+        safe,
+      );
+    } else {
+      // Check Top1
+      getPlaceValues(1);
+      getSafe(1);
+      console.log(
+        '[GB] Place 1 — Donation=%s, RewardFP=%s, Profit=%s (%s%%), remaining=%d, canLock=%s',
+        Donation.toString(),
+        RewardFP.toString(),
+        Profit.toString(),
+        Percent.toString(),
+        remaining,
+        Donation.isLessThan(BigNumber(remaining)),
+      );
       if (Donation.isLessThan(BigNumber(remaining))) {
-        if (Profit >= 0) {
-          olddonationHTML += `<p class="invest-good">2nd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+        if (Profit.isGreaterThanOrEqualTo(0)) {
+          olddonationHTML += `<p class="invest-good">1st Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
           newdonationHTML += gbTabSafe(
-            2,
+            1,
             currentPercent,
             Donation,
             RewardFP,
@@ -274,15 +390,14 @@ export function showGreatBuldingDonation() {
             donateSuggest,
             GBrewards,
             GBselected.connected,
-            GBselected.level == GBselected.max_level,
+            GBselected.max_level > 0 &&
+              GBselected.level == GBselected.max_level,
             safe,
           );
         } else {
-          olddonationHTML += `<p class="invest-bad">2nd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${
-            Profit * -1
-          }<br>`;
+          olddonationHTML += `<p class="invest-bad">1st Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
           newdonationHTML += gbTabNotSafe(
-            2,
+            1,
             currentPercent,
             Donation,
             RewardFP,
@@ -290,42 +405,37 @@ export function showGreatBuldingDonation() {
             donateSuggest,
             GBrewards,
             GBselected.connected,
-            GBselected.level == GBselected.max_level,
+            GBselected.max_level > 0 &&
+              GBselected.level == GBselected.max_level,
             safe,
           );
         }
-        if (GBrewards[1]) {
+        if (GBrewards[0]) {
           olddonationHTML += getFriendlyDonation(
             donateCustom,
             RewardFP,
             currentPercent,
             Donation,
           );
-          olddonationHTML += `BE: ${RewardFP}FP<br></p>`;
-          if (PlayerName == MyInfo.name && Donation - donateSuggest[1] > 0)
-            olddonationHTML += `<p class="">Add ${
-              (Donation - donateCustom) * 2
-            }FP <span data-i18n="safe">to make safe for</span> ${currentPercent ? currentPercent / 100 : '1.9'}</p>`;
-          copyText += getDonations(2, safe, donateSuggest);
+          olddonationHTML += `BE: ${RewardFP}FP</p>`;
         } else olddonationHTML += `</p>`;
+        if (PlayerName == MyInfo.name && Donation - donateSuggest[0] > 0)
+          olddonationHTML += `<p class=""><span data-i18n="add">Add</span> ${
+            currentPercent ?
+              (Donation - donateCustom) * 2
+            : (Donation - donate190) * 2
+          }FP <span data-i18n="safe">to make safe for</span> ${currentPercent ? currentPercent / 100 : '1.9'}</p>`;
+        copyText += getDonations(1, safe, donateSuggest);
       }
-      // not Top2, Check Top3
+      // not Top1, Check Top2
       else {
-        getPlaceValues(3);
-        getSafe(3);
-        console.debug(
-          'RewardFP/Donation/Profit ',
-          RewardFP,
-          Donation,
-          Profit,
-          donateCustom,
-          currentPercent,
-        );
+        getPlaceValues(2);
+        getSafe(2);
         if (Donation.isLessThan(BigNumber(remaining))) {
-          if (Profit >= 0) {
-            olddonationHTML += `<p class="invest-good">3rd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+          if (Profit.isGreaterThanOrEqualTo(0)) {
+            olddonationHTML += `<p class="invest-good">2nd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
             newdonationHTML += gbTabSafe(
-              3,
+              2,
               currentPercent,
               Donation,
               RewardFP,
@@ -333,15 +443,14 @@ export function showGreatBuldingDonation() {
               donateSuggest,
               GBrewards,
               GBselected.connected,
-              GBselected.level == GBselected.max_level,
+              GBselected.max_level > 0 &&
+                GBselected.level == GBselected.max_level,
               safe,
             );
           } else {
-            olddonationHTML += `<p class="invest-bad">3rd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${
-              Profit * -1
-            }<br>`;
+            olddonationHTML += `<p class="invest-bad">2nd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
             newdonationHTML += gbTabNotSafe(
-              3,
+              2,
               currentPercent,
               Donation,
               RewardFP,
@@ -349,11 +458,12 @@ export function showGreatBuldingDonation() {
               donateSuggest,
               GBrewards,
               GBselected.connected,
-              GBselected.level == GBselected.max_level,
+              GBselected.max_level > 0 &&
+                GBselected.level == GBselected.max_level,
               safe,
             );
           }
-          if (GBrewards[2]) {
+          if (GBrewards[1]) {
             olddonationHTML += getFriendlyDonation(
               donateCustom,
               RewardFP,
@@ -361,22 +471,30 @@ export function showGreatBuldingDonation() {
               Donation,
             );
             olddonationHTML += `BE: ${RewardFP}FP<br></p>`;
-            if (PlayerName == MyInfo.name && Donation - donateSuggest[2] > 0)
+            if (PlayerName == MyInfo.name && Donation - donateSuggest[1] > 0)
               olddonationHTML += `<p class="">Add ${
                 (Donation - donateCustom) * 2
               }FP <span data-i18n="safe">to make safe for</span> ${currentPercent ? currentPercent / 100 : '1.9'}</p>`;
-            copyText += getDonations(3, safe, donateSuggest);
+            copyText += getDonations(2, safe, donateSuggest);
           } else olddonationHTML += `</p>`;
         }
-        // not Top3, Check Top4
+        // not Top2, Check Top3
         else {
-          getPlaceValues(4);
-          getSafe(4);
+          getPlaceValues(3);
+          getSafe(3);
+          console.debug(
+            'RewardFP/Donation/Profit ',
+            RewardFP,
+            Donation,
+            Profit,
+            donateCustom,
+            currentPercent,
+          );
           if (Donation.isLessThan(BigNumber(remaining))) {
-            if (Profit >= 0) {
-              olddonationHTML += `<p class="invest-good">4th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+            if (Profit.isGreaterThanOrEqualTo(0)) {
+              olddonationHTML += `<p class="invest-good">3rd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
               newdonationHTML += gbTabSafe(
-                4,
+                3,
                 currentPercent,
                 Donation,
                 RewardFP,
@@ -384,15 +502,14 @@ export function showGreatBuldingDonation() {
                 donateSuggest,
                 GBrewards,
                 GBselected.connected,
-                GBselected.level == GBselected.max_level,
+                GBselected.max_level > 0 &&
+                  GBselected.level == GBselected.max_level,
                 safe,
               );
             } else {
-              olddonationHTML += `<p class="invest-bad">4th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${
-                Profit * -1
-              }<br>`;
+              olddonationHTML += `<p class="invest-bad">3rd Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
               newdonationHTML += gbTabNotSafe(
-                4,
+                3,
                 currentPercent,
                 Donation,
                 RewardFP,
@@ -400,11 +517,12 @@ export function showGreatBuldingDonation() {
                 donateSuggest,
                 GBrewards,
                 GBselected.connected,
-                GBselected.level == GBselected.max_level,
+                GBselected.max_level > 0 &&
+                  GBselected.level == GBselected.max_level,
                 safe,
               );
             }
-            if (GBrewards[3]) {
+            if (GBrewards[2]) {
               olddonationHTML += getFriendlyDonation(
                 donateCustom,
                 RewardFP,
@@ -412,24 +530,22 @@ export function showGreatBuldingDonation() {
                 Donation,
               );
               olddonationHTML += `BE: ${RewardFP}FP<br></p>`;
-              if (PlayerName == MyInfo.name && Donation - donateSuggest[3] > 0)
+              if (PlayerName == MyInfo.name && Donation - donateSuggest[2] > 0)
                 olddonationHTML += `<p class="">Add ${
                   (Donation - donateCustom) * 2
-                }FP <span data-i18n="safe">to make safe for</span> ${
-                  currentPercent ? currentPercent / 100 : '1.9'
-                }</p>`;
-              copyText += getDonations(4, safe, donateSuggest);
+                }FP <span data-i18n="safe">to make safe for</span> ${currentPercent ? currentPercent / 100 : '1.9'}</p>`;
+              copyText += getDonations(3, safe, donateSuggest);
             } else olddonationHTML += `</p>`;
           }
-          // not Top4, Check Top5
+          // not Top3, Check Top4
           else {
-            getPlaceValues(5);
-            getSafe(5);
+            getPlaceValues(4);
+            getSafe(4);
             if (Donation.isLessThan(BigNumber(remaining))) {
-              if (Profit >= 0) {
-                olddonationHTML += `<p class="invest-good">5th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+              if (Profit.isGreaterThanOrEqualTo(0)) {
+                olddonationHTML += `<p class="invest-good">4th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
                 newdonationHTML += gbTabSafe(
-                  5,
+                  4,
                   currentPercent,
                   Donation,
                   RewardFP,
@@ -437,15 +553,14 @@ export function showGreatBuldingDonation() {
                   donateSuggest,
                   GBrewards,
                   GBselected.connected,
-                  GBselected.level == GBselected.max_level,
+                  GBselected.max_level > 0 &&
+                    GBselected.level == GBselected.max_level,
                   safe,
                 );
               } else {
-                olddonationHTML += `<p class="invest-bad">5th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${
-                  Profit * -1
-                }<br>`;
+                olddonationHTML += `<p class="invest-bad">4th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
                 newdonationHTML += gbTabNotSafe(
-                  5,
+                  4,
                   currentPercent,
                   Donation,
                   RewardFP,
@@ -453,11 +568,12 @@ export function showGreatBuldingDonation() {
                   donateSuggest,
                   GBrewards,
                   GBselected.connected,
-                  GBselected.level == GBselected.max_level,
+                  GBselected.max_level > 0 &&
+                    GBselected.level == GBselected.max_level,
                   safe,
                 );
               }
-              if (GBrewards[4]) {
+              if (GBrewards[3]) {
                 olddonationHTML += getFriendlyDonation(
                   donateCustom,
                   RewardFP,
@@ -467,33 +583,97 @@ export function showGreatBuldingDonation() {
                 olddonationHTML += `BE: ${RewardFP}FP<br></p>`;
                 if (
                   PlayerName == MyInfo.name &&
-                  Donation - donateSuggest[4] > 0
+                  Donation - donateSuggest[3] > 0
                 )
                   olddonationHTML += `<p class="">Add ${
                     (Donation - donateCustom) * 2
                   }FP <span data-i18n="safe">to make safe for</span> ${
                     currentPercent ? currentPercent / 100 : '1.9'
                   }</p>`;
-                copyText += getDonations(5, safe, donateSuggest);
+                copyText += getDonations(4, safe, donateSuggest);
               } else olddonationHTML += `</p>`;
-            } else {
-              copyText = '';
-              newdonationHTML += gbTabEmpty(
-                '-',
-                currentPercent,
-                Donation,
-                RewardFP,
-                donateCustom,
-                donateSuggest,
-                GBrewards,
-                GBselected.connected,
-                GBselected.level == GBselected.max_level,
-              );
+            }
+            // not Top4, Check Top5
+            else {
+              getPlaceValues(5);
+              getSafe(5);
+              if (Donation.isLessThan(BigNumber(remaining))) {
+                if (Profit.isGreaterThanOrEqualTo(0)) {
+                  olddonationHTML += `<p class="invest-good">5th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="profit">Profit</span>: ${Profit} (${Percent}%)<br>`;
+                  newdonationHTML += gbTabSafe(
+                    5,
+                    currentPercent,
+                    Donation,
+                    RewardFP,
+                    donateCustom,
+                    donateSuggest,
+                    GBrewards,
+                    GBselected.connected,
+                    GBselected.max_level > 0 &&
+                      GBselected.level == GBselected.max_level,
+                    safe,
+                  );
+                } else {
+                  olddonationHTML += `<p class="invest-bad">5th Place<br><span data-i18n="lock">Lock</span>: ${Donation}FP<br><span data-i18n="loss">Loss</span>: ${Profit.negated()}<br>`;
+                  newdonationHTML += gbTabNotSafe(
+                    5,
+                    currentPercent,
+                    Donation,
+                    RewardFP,
+                    donateCustom,
+                    donateSuggest,
+                    GBrewards,
+                    GBselected.connected,
+                    GBselected.max_level > 0 &&
+                      GBselected.level == GBselected.max_level,
+                    safe,
+                  );
+                }
+                if (GBrewards[4]) {
+                  olddonationHTML += getFriendlyDonation(
+                    donateCustom,
+                    RewardFP,
+                    currentPercent,
+                    Donation,
+                  );
+                  olddonationHTML += `BE: ${RewardFP}FP<br></p>`;
+                  if (
+                    PlayerName == MyInfo.name &&
+                    Donation - donateSuggest[4] > 0
+                  )
+                    olddonationHTML += `<p class="">Add ${
+                      (Donation - donateCustom) * 2
+                    }FP <span data-i18n="safe">to make safe for</span> ${
+                      currentPercent ? currentPercent / 100 : '1.9'
+                    }</p>`;
+                  copyText += getDonations(5, safe, donateSuggest);
+                } else olddonationHTML += `</p>`;
+              } else {
+                console.warn(
+                  '[GB] No lockable position found — all Donation values >= remaining (%d). GBselected.total=%d, GBselected.current=%d',
+                  remaining,
+                  GBselected.total,
+                  GBselected.current,
+                );
+                copyText = '';
+                newdonationHTML += gbTabEmpty(
+                  '-',
+                  currentPercent,
+                  Donation,
+                  RewardFP,
+                  donateCustom,
+                  donateSuggest,
+                  GBrewards,
+                  GBselected.connected,
+                  GBselected.max_level > 0 &&
+                    GBselected.level == GBselected.max_level,
+                );
+              }
             }
           }
         }
       }
-    }
+    } // close else (user not already ranked)
 
     // close table
     if (showOptions.showDonation) {
@@ -735,7 +915,7 @@ function gbTabSafe(
       <tbody>
       <tr>
       <td><strong>${placeString}</strong></td>
-      <td>${donation} FP <strong>[+${rewardFP - donation} FP]</strong></td>
+      <td><span class="green">${donation} FP</span> <strong>[+${rewardFP - donation} FP]</strong></td>
       <td>${donateCustom} FP</td>
       <td>${rewardFP} FP</td>
       </tr>
@@ -819,7 +999,7 @@ function gbTabNotSafe(
     <tbody>
       <tr>
         <td><strong>${placeString}</strong></td>
-        <td>${donation} FP <strong>[${rewardFP - donation} FP]</strong></td>
+        <td><span class="red">${donation} FP</span> <strong>[${rewardFP - donation} FP]</strong></td>
         <td>${donateCustom} FP</td>
         <td>${rewardFP} FP</td>
       </tr>
@@ -1002,20 +1182,44 @@ function getSafe(place) {
       .div(100)
       .dp(0);
     rem -= donateSuggest[i];
-    safe[i] = rem <= donateSuggest[i] - Top[place] ? true : false;
+    // Max FP among contributors at or below position (i+1).
+    // The worst case: that person adds ALL of rem on top of their existing FP.
+    // Safe when donateSuggest[i] >= maxBelowFP + rem (ties are safe — we contributed first).
+    var maxBelowFP = 0;
+    for (var k = i; k < 6; k++) {
+      if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
+    }
+    safe[i] = donateSuggest[i].isGreaterThanOrEqualTo(maxBelowFP + rem);
   }
 }
 
 function getPlaceValues(place) {
   var index = place - 1;
-  Donation = new BigNumber(GBselected.total - GBselected.current + Top[index])
-    .div(2)
-    .dp(0, 2);
+  const remaining_fp = GBselected.total - GBselected.current;
+
+  // Find the max FP among contributors who would be below us if we take
+  // this position.  For P1 that's everyone (Top[0]..Top[4]); for P2 it's
+  // Top[1]..Top[4] (P1 stays above us), etc.
+  // When we contribute D, the biggest threat is:
+  //   maxBelowFP + (remaining_fp - D)   ← they add ALL leftover
+  // We need  D >= maxBelowFP + remaining_fp - D  (ties safe — we contributed first)
+  //          2D >= maxBelowFP + remaining_fp
+  //          D   = ceil((maxBelowFP + remaining_fp) / 2)
+  var maxBelowFP = 0;
+  for (var k = index; k < 6; k++) {
+    if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
+  }
+  const lockFromThreat = new BigNumber(
+    Math.ceil((maxBelowFP + remaining_fp) / 2),
+  );
+  const lockToBeat = new BigNumber(Top[index]).plus(1);
+  Donation = BigNumber.maximum(lockFromThreat, lockToBeat);
+
   RewardFP = new BigNumber(GBrewards[index])
     .multipliedBy(1 + City.ArcBonus / 100)
     .dp(0);
-  Profit = RewardFP.minus(Donation).toString();
-  Percent = new BigNumber(Profit).multipliedBy(100).idiv(Donation);
+  Profit = RewardFP.minus(Donation);
+  Percent = Profit.multipliedBy(100).idiv(Donation);
   const band = fPercentBanded(Percent);
   donateCustom = new BigNumber(GBrewards[index])
     .multipliedBy(currentPercent)

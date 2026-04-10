@@ -283,61 +283,41 @@ function fnShowOptions(showOptions) {
 // }
 
 function setStorage(value) {
-  // console.debug(value);
-  browser.permissions
-    .request({
-      permissions: ['storage'],
-    })
-    .then((granted) => {
-      if (granted) {
-        // The extension has the permissions.
-        browser.storage.local
-          .set({
-            showOptions: {
-              showBonus: value.showBonus,
-              showIncidents: value.showIncidents,
-              showGVG: value.showGVG,
-              showGBInfo: value.showGBInfo,
-              showGBRewards: value.showGBRewards,
-              showGBDonors: value.showGBDonors,
-              showInvested: value.showInvested,
-              showDonation: value.showDonation,
-              showFriends: value.showFriends,
-              showGuild: value.showGuild,
-              showHood: value.showHood,
-              showStats: value.showStats,
-              showBattleground: value.showBattleground,
-              showExpedition: value.showExpedition,
-              showTreasury: value.showTreasury,
-              showVisit: value.showVisit,
-              showSettlement: value.showSettlement,
-              showArmy: value.showArmy,
-              showGoods: value.showGoods,
-              showLeaderboard: value.showLeaderboard,
-              showGBGrewards: value.showGBGrewards,
-              GBGprovinceTime: value.GBGprovinceTime,
-              GBGshowSC: value.GBGshowSC,
-              showGErewards: value.showGErewards,
-              showRewards: value.showRewards,
-              showLogs: value.showLogs,
-              showContributions: value.showContributions,
-              showGuildPosition: value.showGuildPosition,
-              hideUnsafe: value.hideUnsafe,
-              buildingCosts: value.buildingCosts,
-              collectionTimes: value.collectionTimes,
-            },
-          })
-          .then(() => {
-            // console.debug(`Value is set to`, value);
-          });
-      } else {
-        // The extension doesn't have the permissions.
-      }
-    });
-
-  // browser.storage.local.get(null, function(items) {
-  // console.debug(items);
-  // });
+  browser.storage.local.set({
+    showOptions: {
+      showBonus: value.showBonus,
+      showIncidents: value.showIncidents,
+      showGVG: value.showGVG,
+      showGBInfo: value.showGBInfo,
+      showGBRewards: value.showGBRewards,
+      showGBDonors: value.showGBDonors,
+      showInvested: value.showInvested,
+      showDonation: value.showDonation,
+      showFriends: value.showFriends,
+      showGuild: value.showGuild,
+      showHood: value.showHood,
+      showStats: value.showStats,
+      showBattleground: value.showBattleground,
+      showExpedition: value.showExpedition,
+      showTreasury: value.showTreasury,
+      showVisit: value.showVisit,
+      showSettlement: value.showSettlement,
+      showArmy: value.showArmy,
+      showGoods: value.showGoods,
+      showLeaderboard: value.showLeaderboard,
+      showGBGrewards: value.showGBGrewards,
+      GBGprovinceTime: value.GBGprovinceTime,
+      GBGshowSC: value.GBGshowSC,
+      showGErewards: value.showGErewards,
+      showRewards: value.showRewards,
+      showLogs: value.showLogs,
+      showContributions: value.showContributions,
+      showGuildPosition: value.showGuildPosition,
+      hideUnsafe: value.hideUnsafe,
+      buildingCosts: value.buildingCosts,
+      collectionTimes: value.collectionTimes,
+    },
+  });
 }
 
 document.addEventListener('DOMContentLoaded', restore_options);

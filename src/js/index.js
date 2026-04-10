@@ -32,6 +32,7 @@ import {
 import * as helper from './fn/helper.js';
 import * as storage from './fn/storage.js';
 import * as element from './fn/AddElement';
+import { installTracker } from './fn/requestIdTracker.js';
 import { armyUnitManagementService } from './msg/ArmyUnitManagementService.js';
 import { getBonuses, getLimitedBonuses } from './msg/BonusService.js';
 import { pickupProduction } from './msg/CityProductionService.js';
@@ -53,6 +54,11 @@ import {
   getConstructionRanking,
   setCurrentPercent,
 } from './msg/GreatBuildingsService.js';
+import {
+  onNeighborOverviewReceived,
+  initGBScanUI,
+  neighborGBRequestIds,
+} from './msg/NeighborGBService.js';
 import {
   clearBattleground,
   getBattleground,
@@ -94,6 +100,14 @@ export var availablePacksFP = 0;
 export var PlayerName = '';
 export var PlayerID = 0;
 export var worlds = [];
+// Captured URL of the most recent game JSON request; used by NeighborGBService
+// to make outgoing requests with the same session token (h= parameter).
+export var gameJsonUrl = '';
+// Captured session headers (client-identification) from the most recent game request.
+export var gameRequestHeaders = {};
+// The highest requestId seen in any game response. NeighborGBService reads this
+// to ensure its outgoing requestIds follow the game's sequence.
+export var gameRequestId = 0;
 
 export var MyInfo = {
   name: '',
@@ -122,6 +136,7 @@ export var GBselected = {
   current: 0,
   total: 0,
 };
+export var gbStateCache = {};
 // var GBinfo = [];
 // var GBrequest = [];
 var GuildDonations = [];
@@ -215,48 +230,23 @@ console.debug(tool.version);
 // 	// el: "i18n/el.json"
 // 		} ).done( function() { console.debug('i18n.load OK') } );
 export var darkMode = browser.devtools.panels.themeName;
-// if (window.matchMedia &&
-//     window.matchMedia('(prefers-color-scheme: dark)').matches) {
-// //   img.style.filter="invert(100%)";
-// 		console.debug('dark mode',window.matchMedia('(prefers-color-scheme: dark)').matches);
-// 		// darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-// }
 console.info('themeName', browser.devtools.panels.themeName);
+
 var title = document.createElement('div');
 document.body.appendChild(title);
 title.id = 'title';
 title.className = 'd-flex flex-row justify-content-between';
-
-// TODO fix dark theme
-if (darkMode == 'dark') {
-  title.className =
-    'd-flex flex-row justify-content-between text-light bg-dark';
-  // --color-background = 'bg-dark';
+if (darkMode === 'dark') {
+  title.classList.add('text-light', 'bg-dark');
 }
 
-// <div class="p-2"><img src="${./src/icons/Icon24.png}" /></div>
 {
-  /* <svg id="go-to-options" viewBox="0 0 16 16" width="16px" height="16px"><use xlink:href="${bootstrap-icons/icons/tools.svg#tools}"/></svg> */
+  const body = document.body;
+  if (darkMode === 'dark') body.classList.add('bg-dark', 'text-light');
+  body.classList.add('bootstrap-styles');
 }
-// title.innerHTML =  `<div class="d-flex flex-row justify-content-between">
-// <div class="p-2"><img src="${./src/icons/Icon24.png}" /></div>
-// <div class="p-8">
-// 	<h6>EXT_NAME-dev</h6>
-// </div>
-// <div class="p-2">
-// </div>
-// </div>`;
 
-var newelement = document.body;
-// TODO fix dark theme
-if (darkMode == 'dark') {
-  // 	newelement.classList.toggle("nord-styles");
-  // 	newelement.classList.toggle("dark-mode");
-  newelement.classList.toggle('bg-dark');
-}
-// else
-newelement.classList.toggle('bootstrap-styles');
-newelement = document.createElement('div');
+var newelement = document.createElement('div');
 newelement.className = 'p-2';
 title.appendChild(newelement);
 var child = document.createElement('img');
@@ -264,27 +254,20 @@ child.src = '/icons/Icon48.png';
 child.width = '24';
 child.height = '24';
 child.id = 'logo';
-// if (DEV)
 child.addEventListener('click', toggleDebug);
 newelement.appendChild(child);
+
 newelement = document.createElement('div');
 newelement.className = 'p-8 title';
 title.appendChild(newelement);
 child = document.createElement('h6');
-// TODO fix dark theme
-if (darkMode == 'dark') child.className = 'title text-light bg-dark';
-else child.className = 'title';
-// child.innerHTML = pkg.name;
-child.textContent = EXT_NAME;
+child.className = 'title';
+child.textContent = `${EXT_NAME} ${tool.version}`;
 newelement.appendChild(child);
+
 newelement = document.createElement('div');
 newelement.innerHTML = `<span class="material-icons-outlined md-18 options-icon">settings</span>`;
-newelement.classList.toggle('p-2');
-// newelement.className = "p-2";
-// child = document.createElement("img");
-var svgNS = 'http://www.w3.org/2000/svg';
-// child = document.createElementNS(svgNS,"svg");
-// child = document.createElement("div");
+newelement.className = 'p-2';
 newelement.id = 'go-to-options';
 
 title.appendChild(newelement);
@@ -293,7 +276,7 @@ title.appendChild(newelement);
 export var content = document.createElement('div');
 document.body.appendChild(content);
 content.id = 'content';
-if (darkMode == 'dark') content.className = 'text-light bg-dark';
+if (darkMode === 'dark') content.className = 'text-light bg-dark';
 export var citystats = document.createElement('div');
 content.appendChild(citystats);
 citystats.className = 'alert alert-warning';
@@ -352,6 +335,13 @@ greatbuilding.id = 'greatbuilding';
 export var overview = document.createElement('div');
 content.appendChild(overview);
 overview.id = 'overview';
+export var gbScanDiv = document.createElement('div');
+content.appendChild(gbScanDiv);
+gbScanDiv.id = 'gbScan';
+initGBScanUI();
+installTracker().catch((err) =>
+  console.warn('[FoE-Info] Failed to install request tracker:', err.message),
+);
 export var cultural = document.createElement('div');
 content.appendChild(cultural);
 cultural.id = 'cultural';
@@ -682,6 +672,22 @@ function handleRequestFinished(request) {
       /https:\/\/foe.*\.innogamescdn\.com\/start\/metadata\?id=(.*)/g,
     )
   ) {
+    // Capture game session URL + headers so NeighborGBService can make active outgoing requests
+    if (
+      request.request.url.match(
+        /https:\/\/.*\.forgeofempires\.com\/game\/json\?h=/g,
+      )
+    ) {
+      gameJsonUrl = request.request.url;
+      const capturedHeaders = {};
+      for (const h of request.request.headers) {
+        // Only capture client-identification; signature is computed per-request
+        if (h.name === 'client-identification') {
+          capturedHeaders[h.name] = h.value;
+        }
+      }
+      gameRequestHeaders = capturedHeaders;
+    }
     // console.debug(request.request.headers);
     contentType = request.request.headers.find(
       (header) => header.name === 'client-identification',
@@ -711,6 +717,12 @@ function handleRequestFinished(request) {
       if (parsed && parsed.length) {
         for (var i = 0; i < parsed.length; i++) {
           const msg = parsed[i];
+          if (!msg || typeof msg !== 'object') continue;
+
+          // Track game's requestId counter so NeighborGBService can follow the sequence
+          if (msg.requestId && msg.requestId > gameRequestId) {
+            gameRequestId = msg.requestId;
+          }
 
           console.debug('msg', msg);
 
@@ -720,14 +732,27 @@ function handleRequestFinished(request) {
             msg.requestMethod == 'getMetadata'
           ) {
             try {
-              const requests = msg.responseData.map((item) =>
-                fetch(item.url)
-                  .then((r) => r.json())
+              const requests = msg.responseData.map((item) => {
+                // Skip binary files (e.g. .mo gettext translations) — they are not JSON
+                if (/\.(mo|png|jpg|gif|svg|woff2?)$/i.test(item.url)) {
+                  return Promise.resolve(null);
+                }
+                return fetch(item.url)
+                  .then((r) => {
+                    const ct = r.headers.get('content-type') ?? '';
+                    if (!ct.includes('json') && !ct.includes('text'))
+                      return null;
+                    return r.json();
+                  })
                   .catch((err) => {
-                    console.error('Failed loading metadata', item.url, err);
+                    console.warn(
+                      'Failed loading metadata',
+                      item.url,
+                      err.message,
+                    );
                     return null;
-                  }),
-              );
+                  });
+              });
               const results = await Promise.all(requests);
 
               results.forEach((data, idx) => {
@@ -1003,6 +1028,14 @@ function handleRequestFinished(request) {
                     if (selected.state.invested_forge_points)
                       GBselected.current = selected.state.invested_forge_points;
                     else GBselected.current = 0;
+                    gbStateCache[selected.id] = {
+                      total: GBselected.total,
+                      current: GBselected.current,
+                      level: GBselected.level,
+                      name: GBselected.name,
+                      max_level: GBselected.max_level,
+                      connected: GBselected.connected,
+                    };
                     levelText += `<table>`;
                     levelText += `<tr><td colspan="2">Level ${GBselected.level} (Max ${
                       GBselected.max_level
@@ -1043,6 +1076,37 @@ function handleRequestFinished(request) {
               }
 
               /*City Stats */
+            } else if (msg.requestMethod == 'reset') {
+              /* GB state update after contributing FP */
+              if (Array.isArray(msg.responseData)) {
+                for (const entity of msg.responseData) {
+                  if (entity.type === 'greatbuilding' && entity.state) {
+                    const updated = {
+                      total: entity.state.forge_points_for_level_up || 0,
+                      current: entity.state.invested_forge_points || 0,
+                      level: entity.level || 0,
+                      name:
+                        GBselected.id === entity.id ? GBselected.name
+                        : gbStateCache[entity.id] ? gbStateCache[entity.id].name
+                        : '',
+                      max_level: entity.max_level || 0,
+                      connected:
+                        entity.connected != null ? entity.connected : true,
+                    };
+                    gbStateCache[entity.id] = updated;
+                    if (GBselected.id === entity.id) {
+                      GBselected.total = updated.total;
+                      GBselected.current = updated.current;
+                      GBselected.level = updated.level;
+                      GBselected.max_level = updated.max_level;
+                      console.log(
+                        '[GB] CityMapService.reset updated GBselected:',
+                        updated,
+                      );
+                    }
+                  }
+                }
+              }
             }
           } else if (
             msg.requestClass == 'StartupService' &&
@@ -1319,8 +1383,35 @@ function handleRequestFinished(request) {
             // 	}
             // }
           } else if (msg.requestClass == 'GreatBuildingsService') {
-            /*GB Donors */
-            if (msg.requestMethod == 'getConstructionRanking') {
+            // Skip responses to requests we sent — they are handled directly by
+            // NeighborGBService and must not be double-processed here.
+            if (neighborGBRequestIds.has(msg.requestId)) {
+              // leave cleanup to the 500ms timeout in postGameRequest
+            } else if (msg.requestMethod == 'getOtherPlayerOverview') {
+              /*GB Donors */
+              if (Array.isArray(msg.responseData)) {
+                for (const gb of msg.responseData) {
+                  if (gb.entity_id) {
+                    gbStateCache[gb.entity_id] = {
+                      total: gb.max_progress || 0,
+                      current: gb.current_progress || 0,
+                      level: gb.level || 0,
+                      name: gb.name || '',
+                      max_level: 0,
+                      connected: true,
+                    };
+                  }
+                }
+                console.log(
+                  '[GB] getOtherPlayerOverview cached',
+                  Object.keys(gbStateCache).length,
+                  'buildings:',
+                  gbStateCache,
+                );
+                // Trigger construction detail calls for buildings with active progress
+                onNeighborOverviewReceived(msg.responseData);
+              }
+            } else if (msg.requestMethod == 'getConstructionRanking') {
               // console.debug('msg:', msg);
               getConstructionRanking(
                 msg,
@@ -1328,7 +1419,7 @@ function handleRequestFinished(request) {
               );
             } else if (msg.requestMethod == 'getConstruction') {
               // console.debug('msg:', msg);
-              getConstruction(msg);
+              getConstruction(msg, JSON.parse(request.request.postData.text));
 
               /* GB Add FP*/
             } else if (msg.requestMethod == 'contributeForgePoints') {
