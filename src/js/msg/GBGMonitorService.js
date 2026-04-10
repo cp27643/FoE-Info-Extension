@@ -13,24 +13,28 @@
  */
 
 /*
- * GBG Monitor — Passive province monitoring with Discord alerts.
+ * GBG Monitor — Active province monitoring with Discord alerts.
  *
- * Listens for WebSocket messages pushed by the game server via the
- * wsProxy.js content script. Province updates arrive in real-time
- * without any outgoing requests to the game server.
+ * Polls getBattleground every 15–30 seconds (randomized), diffs province
+ * state against the previous snapshot, and fires Discord webhook alerts for:
+ *   - Our province being attacked (new or increased conquestProgress)
+ *   - Province lock about to expire (configurable threshold)
+ *   - Province ownership changes
+ *   - New attacks anywhere on the grid
  *
- * Initial full state comes from the XHR getBattleground response
- * (intercepted by index.js). Subsequent incremental updates come
- * via WebSocket and are merged into the current map state.
+ * Uses the shared transport layer from NeighborGBService.js.
  */
 
 import {
   targets,
   VolcanoProvinceDefs,
   WaterfallProvinceDefs,
+  gameJsonUrl,
+  gameRequestId,
   url,
   EpocTime,
 } from '../index.js';
+import { postGBGRequest } from './NeighborGBService.js';
 import * as element from '../fn/AddElement';
 import { makeSortable } from '../fn/sortableTable.js';
 
@@ -43,7 +47,7 @@ let currentMap = [];
 let participants = [];
 let ourParticipantId = 0;
 let provinceDefs = [];
-let wsListenerTimerId = null;
+let pollTimerId = null;
 let isMonitoring = false;
 let monitorDiv = null;
 let lastAlerts = new Map(); // key → timestamp for debounce
@@ -51,6 +55,7 @@ let lastTargetText = ''; // track target generator output for change detection
 let activeFilter = null; // null = show all, or 'ours'|'attack'|'unlocked'
 
 // Configurable thresholds
+const LOCK_WARN_MINUTES = 5;
 const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min debounce per event
 
 // ---------------------------------------------------------------------------
@@ -69,6 +74,10 @@ function getProvinceName(provinceId) {
   const match = def.name.match(/^(\w+):?\s+(\w)/);
   if (match) return `${match[1]}: ${match[2]}`;
   return def.name.split(' ')[0].replace(/:$/, '');
+}
+
+function randomPollDelay() {
+  return (Math.floor(Math.random() * 16) + 15) * 1000;
 }
 
 function nowEpoch() {
@@ -212,105 +221,42 @@ function diffProvinces(oldMap, newMap) {
 }
 
 // ---------------------------------------------------------------------------
-// WebSocket listener — drains messages queued by wsProxy.js content script
+// Polling
 // ---------------------------------------------------------------------------
 
-const WS_DRAIN_INTERVAL = 2000; // check every 2 seconds
-
-function drainWsMessages() {
+async function pollBattleground() {
   if (!isMonitoring) return;
 
-  chrome.devtools.inspectedWindow.eval(
-    `(function() {
-      var q = window.__foeInfoWsMessages;
-      if (!q || !q.length) return null;
-      var msgs = q.splice(0, q.length);
-      return JSON.stringify(msgs);
-    })()`,
-    (result, isException) => {
-      if (isException || !result) {
-        scheduleNextDrain();
-        return;
+  try {
+    console.log('[GBGMonitor] Polling getBattleground...');
+    const response = await postGBGRequest([
+      {
+        __class__: 'ServerRequest',
+        requestData: [],
+        requestClass: 'GuildBattlegroundService',
+        requestMethod: 'getBattleground',
+      },
+    ]);
+
+    // Extract the getBattleground response from the array
+    if (Array.isArray(response)) {
+      const bgMsg = response.find(
+        (r) =>
+          r?.requestClass === 'GuildBattlegroundService' &&
+          r?.requestMethod === 'getBattleground' &&
+          r?.responseData,
+      );
+      if (bgMsg) {
+        onBattlegroundUpdate(bgMsg.responseData);
       }
+    }
+  } catch (err) {
+    console.warn('[GBGMonitor] Poll failed:', err.message);
+  }
 
-      try {
-        const messages = JSON.parse(result);
-        processWsMessages(messages);
-      } catch (e) {
-        console.warn('[GBGMonitor] Failed to parse WS messages:', e);
-      }
-
-      scheduleNextDrain();
-    },
-  );
-}
-
-function scheduleNextDrain() {
+  // Schedule next poll with random delay
   if (isMonitoring) {
-    wsListenerTimerId = setTimeout(drainWsMessages, WS_DRAIN_INTERVAL);
-  }
-}
-
-function processWsMessages(messages) {
-  if (!currentMap.length) return; // no base state yet
-
-  let changed = false;
-
-  for (const msg of messages) {
-    if (!msg?.responseData) continue;
-
-    const className = msg.requestClass || '';
-    const method = msg.requestMethod || '';
-
-    console.log('[GBGMonitor] WS:', className + '.' + method);
-
-    // Full state refresh (rare via WS, but handle it)
-    if (
-      className === 'GuildBattlegroundService' &&
-      method === 'getBattleground' &&
-      msg.responseData?.map?.provinces
-    ) {
-      onBattlegroundUpdate(msg.responseData);
-      return;
-    }
-
-    // Incremental province update — merge delta into current map
-    // responseData is an array with [{id, ...changed properties}]
-    const updates = Array.isArray(msg.responseData)
-      ? msg.responseData
-      : [msg.responseData];
-
-    for (const update of updates) {
-      if (!update || typeof update.id === 'undefined') continue;
-
-      const province = currentMap.find((p) => p.id === update.id);
-      if (!province) continue;
-
-      // Snapshot the province before applying updates for diffing
-      const oldSnapshot = JSON.parse(JSON.stringify(province));
-
-      // Merge changed properties
-      for (const key of Object.keys(update)) {
-        if (key === 'id') continue;
-        province[key] = update[key];
-      }
-
-      // Diff this single province change
-      const alerts = diffProvinces([oldSnapshot], [province]);
-      for (const alert of alerts) {
-        if (shouldAlert(alert.key)) {
-          sendDiscordAlert(alert.message);
-        }
-      }
-
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    // Check if target generator output changed
-    setTimeout(checkTargetChange, 500);
-    renderMonitorUI();
+    pollTimerId = setTimeout(pollBattleground, randomPollDelay());
   }
 }
 
@@ -322,57 +268,31 @@ function checkTargetChange() {
   const el = document.getElementById('targetGenText');
   if (!el) return;
 
-  // Extract only stable row data (province names) — ignore timer columns
+  // Compare only province names (stable) — ignore countdown timers
   const rows = el.querySelectorAll('tr');
-  const stableKeys = [];
-  const rowTexts = [];
-  for (const row of rows) {
+  const provinceNames = [];
+  rows.forEach((row) => {
     const cells = row.querySelectorAll('td');
-    if (cells.length < 3) continue;
-    // columns: Battle(0), Province(1), Attrition(2), Opens In(3), SC(4), Built In(5)
-    // Only use Province as the stable key — the rest can change with timers or SC updates
-    const province = cells[1]?.textContent?.trim() ?? '';
-    if (province) {
-      stableKeys.push(province);
-      // Capture full row for Discord message
-      const battle = cells[0]?.textContent?.trim() ?? '';
-      const attrition = cells[2]?.textContent?.trim() ?? '';
-      rowTexts.push(`${battle} | ${province} | ${attrition}`);
-    }
-  }
-
-  const currentSignature = stableKeys.sort().join('|');
-  if (!currentSignature) return;
+    // Province name is in the 2nd column (index 1)
+    if (cells.length > 1) provinceNames.push(cells[1]?.textContent?.trim());
+  });
+  const currentKey = provinceNames.sort().join('|');
+  if (!currentKey) return;
 
   // Skip first capture (baseline)
   if (!lastTargetText) {
-    lastTargetText = currentSignature;
+    lastTargetText = currentKey;
     return;
   }
 
-  if (currentSignature !== lastTargetText) {
-    // Determine what's new
-    const oldSet = new Set(lastTargetText.split('|'));
-    const newTargets = stableKeys.filter((k) => !oldSet.has(k));
-    const removedTargets = [...oldSet].filter(
-      (k) => k && !stableKeys.includes(k),
-    );
-    lastTargetText = currentSignature;
-
-    if (
-      (newTargets.length > 0 || removedTargets.length > 0) &&
-      shouldAlert('target-change')
-    ) {
-      let msg = '📋 **GBG Targets Changed:**\n';
-      if (newTargets.length > 0) {
-        msg += `🆕 Added: ${newTargets.join(', ')}\n`;
-      }
-      if (removedTargets.length > 0) {
-        msg += `❌ Removed: ${removedTargets.join(', ')}\n`;
-      }
-      msg += `\n**Current targets (${rowTexts.length}):**\n`;
-      msg += rowTexts.join('\n');
-      sendDiscordAlert(msg);
+  if (currentKey !== lastTargetText) {
+    lastTargetText = currentKey;
+    if (shouldAlert('target-change')) {
+      const formatted = el.innerHTML
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+      sendDiscordAlert(`📋 **GBG Targets Updated:**\n${formatted}`);
     }
   }
 }
@@ -407,11 +327,6 @@ export function onBattlegroundUpdate(responseData) {
   // Check if target generator output changed (short delay for DOM update)
   setTimeout(checkTargetChange, 500);
 
-  // Auto-start WS monitoring when we receive battleground data
-  if (!isMonitoring) {
-    startMonitoring();
-  }
-
   // Update the UI
   renderMonitorUI();
 }
@@ -423,16 +338,16 @@ export function onBattlegroundUpdate(responseData) {
 export function startMonitoring() {
   if (isMonitoring) return;
   isMonitoring = true;
-  console.log('[GBGMonitor] Monitoring started (WebSocket listener)');
+  console.log('[GBGMonitor] Monitoring started');
   updateMonitorButton();
-  drainWsMessages();
+  pollBattleground();
 }
 
 export function stopMonitoring() {
   isMonitoring = false;
-  if (wsListenerTimerId) {
-    clearTimeout(wsListenerTimerId);
-    wsListenerTimerId = null;
+  if (pollTimerId) {
+    clearTimeout(pollTimerId);
+    pollTimerId = null;
   }
   console.log('[GBGMonitor] Monitoring stopped');
   updateMonitorButton();
@@ -624,16 +539,20 @@ export function initGBGMonitorUI(containerDiv) {
 }
 
 function updateMonitorReadiness(btn, statusDiv) {
-  const hasData = currentMap.length > 0;
+  const hasUrl = !!gameJsonUrl;
+  const hasId = gameRequestId > 0;
   const hasWebhook = !!(url.discordGBGURL || url.discordTargetURL);
 
   const checks = [
     {
-      label: 'GBG data',
-      ok: hasData,
-      detail: hasData
-        ? `${currentMap.length} provinces loaded`
-        : 'open GBG map in-game to load data',
+      label: 'Game URL',
+      ok: hasUrl,
+      detail: hasUrl ? 'captured' : 'waiting for game traffic',
+    },
+    {
+      label: 'Request ID',
+      ok: hasId,
+      detail: hasId ? `#${gameRequestId}` : 'waiting',
     },
     {
       label: 'Discord webhook',
@@ -642,13 +561,13 @@ function updateMonitorReadiness(btn, statusDiv) {
     },
   ];
 
-  const coreReady = hasData;
+  const coreReady = hasUrl && hasId;
   if (!isMonitoring) {
     btn.disabled = !coreReady;
     btn.className =
-      coreReady
-        ? 'btn btn-sm btn-info mt-1 mb-1'
-        : 'btn btn-sm btn-outline-secondary mt-1 mb-1';
+      coreReady ?
+        'btn btn-sm btn-info mt-1 mb-1'
+      : 'btn btn-sm btn-outline-secondary mt-1 mb-1';
   }
 
   const lines = checks.map((c) => {
