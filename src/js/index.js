@@ -1397,8 +1397,9 @@ function handleRequestFinished(request) {
           } else if (msg.requestClass == 'GreatBuildingsService') {
             // Skip responses to requests we sent — they are handled directly by
             // NeighborGBService and must not be double-processed here.
-            if (neighborGBRequestIds.has(msg.requestId)) {
-              // leave cleanup to the 500ms timeout in postGameRequest
+            // Primary: check the registered set. Secondary: scanner IDs are always >= 1,000,000.
+            if (neighborGBRequestIds.has(msg.requestId) || msg.requestId >= 1000000) {
+              // handled by NeighborGBService
             } else if (msg.requestMethod == 'getOtherPlayerOverview') {
               /*GB Donors */
               if (Array.isArray(msg.responseData)) {

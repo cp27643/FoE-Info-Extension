@@ -71,6 +71,9 @@ async function postGameRequest(payloadTemplate) {
     }
 
     const nextId = getNextRequestId();
+    // Register BEFORE sending so the network listener in index.js always
+    // sees the ID and skips double-processing the scanner's responses.
+    neighborGBRequestIds.add(nextId);
     try {
       const result = await sendJsonRequestAtomic(payloadTemplate, {
         gameUrl: gameJsonUrl,
@@ -79,11 +82,9 @@ async function postGameRequest(payloadTemplate) {
       });
       console.log('[NeighborGB] sendJsonRequestAtomic returned, requestId:', result?.requestId, 'response type:', typeof result?.response, 'is array:', Array.isArray(result?.response));
 
-      // Register the claimed requestId so index.js skips double-processing
-      if (result.requestId != null) {
-        neighborGBRequestIds.add(result.requestId);
-        setTimeout(() => neighborGBRequestIds.delete(result.requestId), 500);
-      }
+      // Clean up after a generous delay so the network listener has time
+      // to process the response through request.getContent().then(…).
+      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
 
       if (
         Array.isArray(result.response) &&
@@ -95,6 +96,8 @@ async function postGameRequest(payloadTemplate) {
 
       return result.response;
     } catch (err) {
+      // Clean up the registered ID on failure so it doesn't linger
+      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
       console.warn('[NeighborGB] Request failed (attempt', attempt + 1, '):', err.message);
       if (attempt === MAX_RETRIES) throw err;
     }
