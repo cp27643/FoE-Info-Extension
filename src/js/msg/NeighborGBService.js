@@ -29,7 +29,7 @@
  * steal the same requestId.
  */
 
-import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, gameRequestId } from '../index.js';
+import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, gameRequestId, PlayerID } from '../index.js';
 import { hoodlist } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -190,12 +190,17 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
   const Top = [0, 0, 0, 0, 0, 0];
   const rewards = [0, 0, 0, 0, 0];
 
+  // Find the user's current rank on this building (0 = not contributing)
+  let myRank = 0;
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
+      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+        myRank = rank;
+      }
     } else if (rank === 6) {
       Top[5] = place.forge_points ?? 0;
     }
@@ -209,6 +214,10 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     if (!rewards[index]) continue;
 
     const rank = index + 1;
+
+    // Skip ranks at or below our current rank — only show upgrades
+    if (myRank > 0 && rank >= myRank) continue;
+
     const isVacant =
       !rankings?.find(
         (p) =>
