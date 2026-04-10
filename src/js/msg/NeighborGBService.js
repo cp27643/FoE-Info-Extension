@@ -190,8 +190,9 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
   const Top = [0, 0, 0, 0, 0, 0];
   const rewards = [0, 0, 0, 0, 0];
 
-  // Find the user's current rank on this building (0 = not contributing)
+  // Find the user's current rank and FP on this building
   let myRank = 0;
+  let myFP = 0;
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
@@ -200,9 +201,13 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
       if (place.player?.is_self || place.player?.player_id == PlayerID) {
         myRank = rank;
+        myFP = place.forge_points ?? 0;
       }
     } else if (rank === 6) {
       Top[5] = place.forge_points ?? 0;
+      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+        myFP = place.forge_points ?? 0;
+      }
     }
   }
 
@@ -215,8 +220,8 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
 
     const rank = index + 1;
 
-    // Skip ranks at or below our current rank — only show upgrades
-    if (myRank > 0 && rank >= myRank) continue;
+    // Skip ranks worse than our current rank (higher number = worse)
+    if (myRank > 0 && rank > myRank) continue;
 
     const isVacant =
       !rankings?.find(
@@ -227,25 +232,25 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
       );
     const currentFP = Top[index];
 
-    // Snipe cost: just beat the current holder (risky)
-    const snipeCost = isVacant ? 1 : currentFP + 1;
-    if (remainingFP > 0 && snipeCost > remainingFP) continue;
-
     // Lock cost: same formula as getPlaceValues() in GreatBuildingsService.
-    // maxBelowFP = highest existing FP at this position or below (including rank 6).
-    // Worst-case threat: that player adds ALL leftover FP → their total = maxBelowFP + (remaining - D).
-    // Safe when D ≥ maxBelowFP + remaining - D → D = ceil((maxBelowFP + remaining) / 2).
     let maxBelowFP = 0;
     for (let k = index; k < 6; k++) {
       if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
     }
     const lockFromThreat = Math.ceil((maxBelowFP + remainingFP) / 2);
     const lockToBeat = currentFP + 1;
-    const lockCost = Math.max(lockFromThreat, lockToBeat);
+    const totalLockCost = Math.max(lockFromThreat, lockToBeat);
+
+    // Marginal cost: subtract FP we've already contributed
+    const marginalCost = Math.max(0, totalLockCost - myFP);
+
+    // If marginal cost is 0, we already lock this position — skip
+    if (marginalCost <= 0) continue;
+
+    if (remainingFP > 0 && marginalCost > remainingFP) continue;
 
     const rewardFP = Math.round(rewards[index] * arcMultiplier);
-    const snipeProfit = rewardFP - snipeCost;
-    const lockProfit = rewardFP - lockCost;
+    const lockProfit = rewardFP - marginalCost;
 
     // Only include positions where the safe lock is profitable
     if (lockProfit <= 0) continue;
@@ -255,7 +260,7 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
       rank,
       currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
       currentFP,
-      lockCost,
+      lockCost: marginalCost,
       rewardFP,
       baseRewardFP: rewards[index],
       lockProfit,
