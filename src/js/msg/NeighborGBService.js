@@ -239,7 +239,9 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
       if (myRank > 0 && k === myRank - 1) continue; // skip our own rank
       if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
     }
-    const lockFromThreat = Math.ceil((maxBelowFP + remainingFP) / 2);
+    // When user already has myFP on the building, contributing D total only
+    // removes (D - myFP) from remaining, leaving more FP for the threat.
+    const lockFromThreat = Math.ceil((maxBelowFP + remainingFP + myFP) / 2);
     // If we already hold this rank, we don't need to beat ourselves
     const lockToBeat = (myRank === rank) ? 0 : currentFP + 1;
     const totalLockCost = Math.max(lockFromThreat, lockToBeat);
