@@ -60,6 +60,10 @@ import {
 } from './msg/NeighborGBService.js';
 import { initFriendsScanUI } from './msg/FriendsGBService.js';
 import {
+  initGBGMonitorUI,
+  onBattlegroundUpdate,
+} from './msg/GBGMonitorService.js';
+import {
   clearBattleground,
   getBattleground,
   getBuildings,
@@ -290,6 +294,11 @@ content.appendChild(alerts);
 export var targets = document.createElement('div');
 targets.id = 'targets';
 content.appendChild(targets);
+
+export var gbgMonitorDiv = document.createElement('div');
+gbgMonitorDiv.id = 'gbgMonitor';
+content.appendChild(gbgMonitorDiv);
+initGBGMonitorUI(gbgMonitorDiv);
 
 export var bonusDIV = document.createElement('div');
 bonusDIV.id = 'bonus';
@@ -1606,6 +1615,7 @@ function handleRequestFinished(request) {
               /*Guild Battleground*/
               clearForBattleground();
               getBattleground(msg);
+              onBattlegroundUpdate(msg.responseData);
             } else if (msg.requestMethod == 'getState') {
               if (msg.responseData.stateId == 'participating') {
                 //clearForBattleground();

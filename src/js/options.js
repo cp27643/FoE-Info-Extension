@@ -109,6 +109,7 @@ function save_options() {
 
   // Discord Webhooks
   url.discordTargetURL = document.getElementById('discordTargetURL').value;
+  url.discordGBGURL = document.getElementById('discordGBGURL').value;
 
   // Google Sheets
   url.sheetGuildURL = document.getElementById('sheetGuildURL').value;
@@ -131,6 +132,7 @@ function save_options() {
       donationSuffix: donationSuffix,
       url: {
         discordTargetURL: url.discordTargetURL,
+        discordGBGURL: url.discordGBGURL,
         sheetGuildURL: url.sheetGuildURL,
         // sheetCityURL: url.sheetCityURL,
         // sheetGameURL: url.sheetGameURL
@@ -197,6 +199,8 @@ function restore_options() {
         if (url.discordTargetURL)
           document.getElementById('discordTargetURL').value =
             url.discordTargetURL;
+        if (url.discordGBGURL)
+          document.getElementById('discordGBGURL').value = url.discordGBGURL;
         if (url.sheetGuildURL)
           document.getElementById('sheetGuildURL').value = url.sheetGuildURL;
         // if(url.sheetCityURL)
