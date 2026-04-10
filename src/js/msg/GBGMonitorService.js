@@ -69,9 +69,11 @@ function getParticipantName(participantId) {
 function getProvinceName(provinceId) {
   const def = provinceDefs.find((d) => d.id === provinceId);
   if (!def?.name) return `P${provinceId}`;
-  // Short format: first letter + number, e.g. "A1 Archipelago" → "A1"
+  // Short format: "A3: Z" from "A3 Zamva"
   const parts = def.name.split(' ');
-  return parts[0];
+  const code = parts[0];
+  const initial = parts.length > 1 ? parts[1].charAt(0) : '';
+  return initial ? `${code}: ${initial}` : code;
 }
 
 function randomPollDelay() {
