@@ -542,7 +542,7 @@ function checkProvinces() {
         if (campsNotReady > 0)
           campsNotReady = Math.min(80 - campsReady, campsNotReady);
         var text = name[0] + name[1];
-        var roleTag = province.ownerId === currentParticipantId ? '🛡️' : '⚔️';
+        var roleTag = province.isAttackBattleType ? '⚔️' : '🛡️';
         text = roleTag + ' ' + text;
         var baseAttrition = province.gainAttritionChance ?? 0;
         var effectiveAttrition = Math.max(baseAttrition - campsReady, 0);
