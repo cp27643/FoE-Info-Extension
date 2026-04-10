@@ -25,12 +25,17 @@
 
 import {
   friendsScanDiv,
+  gameJsonUrl,
+  gameRequestId,
   PlayerID,
 } from '../index.js';
 import { friends } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
-import { isWsReady } from '../fn/requestIdTracker.js';
+import {
+  isSecretDiscovered,
+  tryDiscoverSecret,
+} from '../fn/requestIdTracker.js';
 import { makeSortable } from '../fn/sortableTable.js';
 import {
   getNeighborOverview,
@@ -221,8 +226,8 @@ export function initFriendsScanUI() {
   friendsScanDiv.appendChild(btn);
   friendsScanDiv.appendChild(statusDiv);
 
-  // WebSocket readiness check runs in the background
-  const wsReady = isWsReady();
+  // Kick off secret discovery in the background so it's ready when needed
+  tryDiscoverSecret().catch(() => {});
 
   // Periodic readiness check — updates every 2 s until all prerequisites are met
   const checkInterval = setInterval(() => {
@@ -234,7 +239,6 @@ export function initFriendsScanUI() {
 }
 
 function updateFriendsScanReadiness(btn, statusDiv) {
-  const wsReadyNow = false; // will be checked async below
   const checks = [
     {
       label: 'Friends list',
@@ -243,9 +247,15 @@ function updateFriendsScanReadiness(btn, statusDiv) {
         friends.length > 0 ? `${friends.length} friends` : 'open social bar',
     },
     {
-      label: 'WebSocket',
-      ok: false, // updated async below
-      detail: 'checking…',
+      label: 'Game URL',
+      ok: !!gameJsonUrl,
+      detail: gameJsonUrl ? 'captured' : 'waiting for game traffic',
+    },
+    {
+      label: 'Request ID',
+      ok: gameRequestId > 0,
+      detail:
+        gameRequestId > 0 ? `#${gameRequestId}` : 'waiting for game traffic',
     },
     {
       label: 'Player ID',
@@ -257,20 +267,16 @@ function updateFriendsScanReadiness(btn, statusDiv) {
       ok: City.ArcBonus != null,
       detail: City.ArcBonus != null ? `${City.ArcBonus}%` : 'defaults to 90%',
     },
+    {
+      label: 'Secret key',
+      ok: isSecretDiscovered(),
+      detail:
+        isSecretDiscovered() ? 'discovered' : 'auto-discovers on first scan',
+    },
   ];
 
-  // Check WebSocket asynchronously
-  isWsReady().then((ready) => {
-    checks[1].ok = ready;
-    checks[1].detail = ready ? 'connected' : 'waiting for game WebSocket';
-    renderReadiness(btn, statusDiv, checks);
-  });
-
-  return false; // always async — renderReadiness handles enabling
-}
-
-function renderReadiness(btn, statusDiv, checks) {
-  const coreReady = checks[0].ok && checks[1].ok;
+  // Core prerequisites that must be met to enable the button
+  const coreReady = checks[0].ok && checks[1].ok && checks[2].ok;
 
   btn.disabled = !coreReady;
   btn.className =
@@ -281,7 +287,7 @@ function renderReadiness(btn, statusDiv, checks) {
   const lines = checks.map((c) => {
     const icon =
       c.ok ? '✅'
-      : c.label === 'Arc bonus' ? '⏳'
+      : c.label === 'Arc bonus' || c.label === 'Secret key' ? '⏳'
       : '❌';
     return `${icon} ${c.label}: ${c.detail}`;
   });
