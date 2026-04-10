@@ -388,7 +388,7 @@ function renderMonitorUI() {
     ${element.close()}
     <p><strong>GBG Monitor</strong>
     <small class="text-muted ms-2">${isMonitoring ? '🟢 Active' : '🔴 Stopped'} | ${ourProvinces.length} provinces held</small></p>
-    <p class="mb-1 small text-muted">Legend: <span class="badge bg-danger text-white">Under Attack</span> <span class="badge bg-warning text-dark">Unlocked</span></p>`;
+    <p class="mb-1 small text-muted">Legend: <span class="badge bg-success text-white">Ours</span> <span class="badge bg-danger text-white">Under Attack</span> <span class="badge bg-warning text-dark">Unlocked (not ours)</span></p>`;
 
   // Under attack section
   if (underAttack.length) {
@@ -413,12 +413,18 @@ function renderMonitorUI() {
     html += `</tbody></table>`;
   }
 
-  // Our provinces with lock timers (exclude spawn)
-  if (ourNonSpawn.length) {
-    html += `<p class="mb-1"><strong>Our Provinces:</strong></p>`;
-    html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorOurTable">
-      <thead><tr><th>Province</th><th>VP</th><th>VP Bonus</th><th>Lock</th><th>Attrition %</th></tr></thead><tbody>`;
-    const sorted = [...ourNonSpawn].sort(
+  // All provinces table
+  const allProvinces = currentMap.filter((p) => !p.isSpawnSpot);
+  if (allProvinces.length) {
+    html += `<p class="mb-1"><strong>All Provinces (${allProvinces.length}):</strong></p>`;
+    html += `<p class="mb-1 small text-muted">
+      <span class="badge bg-success text-white">Ours</span>
+      <span class="badge bg-danger text-white">Under Attack</span>
+      <span class="badge bg-warning text-dark">Unlocked (not ours)</span>
+    </p>`;
+    html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorAllTable">
+      <thead><tr><th>Province</th><th>Owner</th><th>VP</th><th>VP Bonus</th><th>Lock</th><th>Attrition</th></tr></thead><tbody>`;
+    const sorted = [...allProvinces].sort(
       (a, b) => (a.lockedUntil ?? 0) - (b.lockedUntil ?? 0),
     );
     for (const p of sorted) {
@@ -428,17 +434,21 @@ function renderMonitorUI() {
         : lockSecs <= 0 ? '🔓 Open'
         : lockSecs <= LOCK_WARN_MINUTES * 60 ? `⚠️ ${formatCountdown(lockSecs)}`
         : formatCountdown(lockSecs);
+      const isOurs = p.ownerId === ourParticipantId;
       const isAttacked = p.conquestProgress?.length > 0;
+      const isUnlocked = !p.lockedUntil || lockSecs <= 0;
       const rowClass =
-        isAttacked ? 'table-danger'
-        : lockSecs <= 0 ? 'table-warning'
+        isAttacked && isOurs ? 'table-danger'
+        : isOurs ? 'table-success'
+        : isUnlocked ? 'table-warning'
         : '';
       html += `<tr class="${rowClass}">
         <td>${getProvinceName(p.id)}</td>
+        <td>${getParticipantName(p.ownerId)}</td>
         <td>${p.victoryPoints ?? 0}</td>
         <td>${p.victoryPointsBonus ?? 0}</td>
         <td>${lockText}</td>
-        <td>${p.gainAttritionChance ?? 0}%</td>
+        <td>${p.gainAttritionChance ?? '—'}%</td>
       </tr>`;
     }
     html += `</tbody></table>`;
