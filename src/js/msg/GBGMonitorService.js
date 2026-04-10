@@ -407,6 +407,11 @@ export function onBattlegroundUpdate(responseData) {
   // Check if target generator output changed (short delay for DOM update)
   setTimeout(checkTargetChange, 500);
 
+  // Auto-start WS monitoring when we receive battleground data
+  if (!isMonitoring) {
+    startMonitoring();
+  }
+
   // Update the UI
   renderMonitorUI();
 }
