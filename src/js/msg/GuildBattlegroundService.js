@@ -327,8 +327,7 @@ function copyToClipboard(element) {
   var $temp = $('<textarea>');
   $('body').append($temp);
   var html = $(element).html();
-  console.debug(html);
-  // var html = $(element).text();
+  // Strip HTML tags but preserve table structure
   html = $('<div />')
     .html(html)
     .find('span')
@@ -337,7 +336,16 @@ function copyToClipboard(element) {
     .end()
     .end()
     .html();
-  html = html.replace(/<\/?p[^>]*>/g, '').replace(/<br>/g, '\r\n'); // or \r\n
+  // Table rows → newlines, cells → tab separators
+  html = html
+    .replace(/<\/tr>/gi, '\r\n')
+    .replace(/<\/td>/gi, '\t')
+    .replace(/<\/th>/gi, '\t')
+    .replace(/<\/?p[^>]*>/g, '')
+    .replace(/<br\s*\/?>/gi, '\r\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\t\r\n/g, '\r\n')
+    .trim();
   console.debug(html);
   $temp.val(html).select();
   document.execCommand('copy');
@@ -541,41 +549,47 @@ function checkProvinces() {
         if (campsReady > 80) campsReady = 80;
         if (campsNotReady > 0)
           campsNotReady = Math.min(80 - campsReady, campsNotReady);
-        var text = name[0] + name[1];
-        var roleTag = province.isAttackBattleType ? '⚔️' : '🛡️';
-        text = roleTag + ' ' + text;
+        var provLabel = name[0] + name[1];
+        var battleType =
+          province.isAttackBattleType ?
+            '<span class="text-danger">⚔️ Attack</span>'
+          : '<span class="text-primary">🛡️ Defend</span>';
         var baseAttrition = province.gainAttritionChance ?? 0;
         var effectiveAttrition = Math.max(baseAttrition - campsReady, 0);
-        text += ' [' + effectiveAttrition + '%]';
         var campsText = '';
         if (showOptions.GBGshowSC && (campsReady || campsNotReady)) {
-          campsText = ' ';
           if (campsReady && !campsNotReady)
-            campsText += '(' + (100 - campsReady) + '%)';
+            campsText = '(' + (100 - campsReady) + '%)';
           else if (campsNotReady && !campsReady)
-            campsText += '[' + (100 - campsNotReady) + '% UC]';
+            campsText = '[' + (100 - campsNotReady) + '% UC]';
           else if (campsReady && campsNotReady)
-            campsText +=
+            campsText =
               '(' +
               (100 - campsReady) +
               '%) [' +
               (100 - campsNotReady - campsReady) +
               '% UC]';
-          else campsText += '(! SC)';
+          else campsText = '(! SC)';
         }
-        if (targetText) text += ' ' + targetText;
-        // check if province is locked
+        var opensAt = '';
         if (province.lockedUntil && showOptions.GBGprovinceTime) {
           var time = new Date(province.lockedUntil * 1000);
-          text += ` ${timeGBG(time)}`;
-          if (textProvinceLocked != '') {
-            textProvinceLocked += '<br>';
-          }
-          textProvinceLocked += text + campsText;
-          // console.debug(province.lockedUntil,time);
+          opensAt = timeGBG(time).replace('@ ', '');
         } else {
-          if (textProvinceUnlocked != '') textProvinceUnlocked += '<br>';
-          textProvinceUnlocked += text + campsText;
+          opensAt = '🔓 Now';
+        }
+        if (targetText) provLabel += ' ' + targetText;
+        var row = `<tr>
+          <td>${provLabel}</td>
+          <td>${battleType}</td>
+          <td>${effectiveAttrition}%</td>
+          <td>${opensAt}</td>
+          ${showOptions.GBGshowSC ? `<td>${campsText}</td>` : ''}
+        </tr>`;
+        if (province.lockedUntil && showOptions.GBGprovinceTime) {
+          textProvinceLocked += row;
+        } else {
+          textProvinceUnlocked += row;
         }
         // console.debug(text);
       }
@@ -590,11 +604,19 @@ function checkProvinces() {
     targetGenerator.innerHTML =
       targetsHTML +
       `<div id="targetGenCollapse" class="collapse
-            ${collapse.collapseTargetGen == false ? 'show' : ''}"><p id="targetGenText">` +
+            ${collapse.collapseTargetGen == false ? 'show' : ''}">
+            <table class="table table-sm table-borderless mb-0" id="targetGenTable">
+              <thead><tr>
+                <th>Province</th>
+                <th>Battle</th>
+                <th>Attrition</th>
+                <th>Opens At</th>
+                ${showOptions.GBGshowSC ? '<th>SC</th>' : ''}
+              </tr></thead>
+              <tbody id="targetGenText">` +
       textProvinceUnlocked +
-      (textProvinceUnlocked != '' ? '<br>' : '') +
       textProvinceLocked +
-      `</p></div>`;
+      `</tbody></table></div>`;
 
     document
       .getElementById('targetCopyID')
