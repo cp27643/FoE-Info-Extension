@@ -233,12 +233,15 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     const currentFP = Top[index];
 
     // Lock cost: same formula as getPlaceValues() in GreatBuildingsService.
+    // Exclude our own position from the threat calculation — we can't outbid ourselves.
     let maxBelowFP = 0;
     for (let k = index; k < 6; k++) {
+      if (myRank > 0 && k === myRank - 1) continue; // skip our own rank
       if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
     }
     const lockFromThreat = Math.ceil((maxBelowFP + remainingFP) / 2);
-    const lockToBeat = currentFP + 1;
+    // If we already hold this rank, we don't need to beat ourselves
+    const lockToBeat = (myRank === rank) ? 0 : currentFP + 1;
     const totalLockCost = Math.max(lockFromThreat, lockToBeat);
 
     // Marginal cost: subtract FP we've already contributed
