@@ -51,6 +51,7 @@ let pollTimerId = null;
 let isMonitoring = false;
 let monitorDiv = null;
 let lastAlerts = new Map(); // key → timestamp for debounce
+let lastTargetText = ''; // track target generator output for change detection
 
 // Configurable thresholds
 const LOCK_WARN_MINUTES = 5;
@@ -266,6 +267,36 @@ async function pollBattleground() {
 }
 
 // ---------------------------------------------------------------------------
+// Target generator change detection
+// ---------------------------------------------------------------------------
+
+function checkTargetChange() {
+  const el = document.getElementById('targetGenText');
+  if (!el) return;
+
+  const currentText = el.textContent.trim();
+  if (!currentText) return;
+
+  // Skip first capture (baseline)
+  if (!lastTargetText) {
+    lastTargetText = currentText;
+    return;
+  }
+
+  if (currentText !== lastTargetText) {
+    lastTargetText = currentText;
+    if (shouldAlert('target-change')) {
+      // Format for Discord: replace <br> with newlines
+      const formatted = el.innerHTML
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+      sendDiscordAlert(`📋 **GBG Targets Updated:**\n${formatted}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public: process a getBattleground responseData
 // ---------------------------------------------------------------------------
 
@@ -291,6 +322,9 @@ export function onBattlegroundUpdate(responseData) {
       }
     }
   }
+
+  // Check if target generator output changed (short delay for DOM update)
+  setTimeout(checkTargetChange, 500);
 
   // Update the UI
   renderMonitorUI();
