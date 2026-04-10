@@ -498,6 +498,7 @@ function checkProvinces() {
         // if(thisdef && province.id == clan.provinceId){
         var campsReady = 0;
         var campsNotReady = 0;
+        var latestReadyAt = 0;
         var name = thisdef.name.split(' ');
         console.debug(thisdef.name, name, thisdef);
         // if(name[0].charAt(1) == '1')
@@ -529,6 +530,9 @@ function checkProvinces() {
                   campsReady += att;
                 } else {
                   campsNotReady += att;
+                  if (building.readyAt > latestReadyAt) {
+                    latestReadyAt = building.readyAt;
+                  }
                 }
 
                 /*if (building.id == "siege_camp" || building.id == "guild_command_post_fortified") {
@@ -557,20 +561,18 @@ function checkProvinces() {
           : '<span class="text-primary">🛡️ Defend</span>';
         var baseAttrition = province.gainAttritionChance ?? 0;
         var effectiveAttrition = Math.max(baseAttrition - campsReady, 0);
-        var campsText = '';
-        if (campsReady || campsNotReady) {
-          if (campsReady && !campsNotReady)
-            campsText = '(' + (100 - campsReady) + '%)';
-          else if (campsNotReady && !campsReady)
-            campsText = '[' + (100 - campsNotReady) + '% UC]';
-          else if (campsReady && campsNotReady)
-            campsText =
-              '(' +
-              (100 - campsReady) +
-              '%) [' +
-              (100 - campsNotReady - campsReady) +
-              '% UC]';
-          else campsText = '(! SC)';
+        var scText = campsReady > 0 ? `▼${campsReady}%` : '—';
+        var builtIn = '';
+        if (campsNotReady > 0 && latestReadyAt > 0) {
+          var ucSecs = latestReadyAt - Math.floor(Date.now() / 1000);
+          if (ucSecs <= 0) {
+            builtIn = '✅ Done';
+          } else {
+            var h = Math.floor(ucSecs / 3600);
+            var m = Math.floor((ucSecs % 3600) / 60);
+            builtIn =
+              (h > 0 ? `${h}h ${m}m` : `${m}m`) + ` (▼${campsNotReady}%)`;
+          }
         }
         var opensIn = '';
         if (province.lockedUntil) {
@@ -590,7 +592,8 @@ function checkProvinces() {
           <td>${provLabel}</td>
           <td>${effectiveAttrition}%</td>
           <td>${opensIn}</td>
-          <td>${campsText}</td>
+          <td>${scText}</td>
+          <td>${builtIn}</td>
         </tr>`;
         if (
           province.lockedUntil &&
@@ -621,6 +624,7 @@ function checkProvinces() {
                 <th>Attrition</th>
                 <th>Opens In</th>
                 <th>SC</th>
+                <th>Built In</th>
               </tr></thead>
               <tbody id="targetGenText">` +
       textProvinceUnlocked +
