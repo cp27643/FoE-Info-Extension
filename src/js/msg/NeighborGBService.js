@@ -455,14 +455,23 @@ function showScanResults(profitable, scanned, total) {
   // Sort by highest lock profit first
   allSpots.sort((a, b) => b.spot.lockProfit - a.spot.lockProfit);
 
-  if (allSpots.length) {
+  // Keep only the most profitable spot per player+building
+  const seen = new Set();
+  const dedupedSpots = allSpots.filter(entry => {
+    const key = `${entry.playerName}|${entry.name}|${entry.level}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (dedupedSpots.length) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
         <th>Lock Cost</th><th>Reward</th><th>Profit</th><th>ROI</th>
       </tr></thead><tbody>`;
 
-    for (const entry of allSpots) {
+    for (const entry of dedupedSpots) {
       const { spot } = entry;
       const pct = entry.maxProgress > 0
         ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
