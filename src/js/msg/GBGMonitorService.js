@@ -34,7 +34,7 @@ import {
   url,
   EpocTime,
 } from '../index.js';
-import { postGameRequest } from './NeighborGBService.js';
+import { postGBGRequest } from './NeighborGBService.js';
 import * as element from '../fn/AddElement';
 import { makeSortable } from '../fn/sortableTable.js';
 
@@ -52,6 +52,7 @@ let isMonitoring = false;
 let monitorDiv = null;
 let lastAlerts = new Map(); // key → timestamp for debounce
 let lastTargetText = ''; // track target generator output for change detection
+let activeFilter = null; // null = show all, or 'ours'|'attack'|'unlocked'
 
 // Configurable thresholds
 const LOCK_WARN_MINUTES = 5;
@@ -69,11 +70,10 @@ function getParticipantName(participantId) {
 function getProvinceName(provinceId) {
   const def = provinceDefs.find((d) => d.id === provinceId);
   if (!def?.name) return `P${provinceId}`;
-  // Short format: "A3: Z" from "A3 Zamva"
-  const parts = def.name.split(' ');
-  const code = parts[0];
-  const initial = parts.length > 1 ? parts[1].charAt(0) : '';
-  return initial ? `${code}: ${initial}` : code;
+  // Short format: "A3: Z" from "A3: Zamva" or "A3 Zamva"
+  const match = def.name.match(/^(\w+):?\s+(\w)/);
+  if (match) return `${match[1]}: ${match[2]}`;
+  return def.name.split(' ')[0].replace(/:$/, '');
 }
 
 function randomPollDelay() {
@@ -242,7 +242,7 @@ async function pollBattleground() {
 
   try {
     console.log('[GBGMonitor] Polling getBattleground...');
-    const response = await postGameRequest([
+    const response = await postGBGRequest([
       {
         __class__: 'ServerRequest',
         requestData: [],
@@ -388,7 +388,12 @@ function renderMonitorUI() {
     ${element.close()}
     <p><strong>GBG Monitor</strong>
     <small class="text-muted ms-2">${isMonitoring ? '🟢 Active' : '🔴 Stopped'} | ${ourProvinces.length} provinces held</small></p>
-    <p class="mb-1 small text-muted">Legend: <span class="badge bg-success text-white">Ours</span> <span class="badge bg-danger text-white">Under Attack</span> <span class="badge bg-warning text-dark">Unlocked (not ours)</span></p>`;
+    <p class="mb-1 small">Filter:
+      <span class="badge bg-success text-white gbg-filter" data-filter="ours" role="button" style="cursor:pointer;${activeFilter === 'ours' ? 'outline:2px solid #000;' : 'opacity:0.6;'}">Ours</span>
+      <span class="badge bg-danger text-white gbg-filter" data-filter="attack" role="button" style="cursor:pointer;${activeFilter === 'attack' ? 'outline:2px solid #000;' : 'opacity:0.6;'}">Under Attack</span>
+      <span class="badge bg-warning text-dark gbg-filter" data-filter="unlocked" role="button" style="cursor:pointer;${activeFilter === 'unlocked' ? 'outline:2px solid #000;' : 'opacity:0.6;'}">Unlocked (not ours)</span>
+      ${activeFilter ? '<span class="badge bg-secondary text-white gbg-filter" data-filter="clear" role="button" style="cursor:pointer;">✕ Clear</span>' : ''}
+    </p>`;
 
   // Under attack section
   if (underAttack.length) {
@@ -417,11 +422,6 @@ function renderMonitorUI() {
   const allProvinces = currentMap.filter((p) => !p.isSpawnSpot);
   if (allProvinces.length) {
     html += `<p class="mb-1"><strong>All Provinces (${allProvinces.length}):</strong></p>`;
-    html += `<p class="mb-1 small text-muted">
-      <span class="badge bg-success text-white">Ours</span>
-      <span class="badge bg-danger text-white">Under Attack</span>
-      <span class="badge bg-warning text-dark">Unlocked (not ours)</span>
-    </p>`;
     html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorAllTable">
       <thead><tr><th>Province</th><th>Owner</th><th>VP</th><th>VP Bonus</th><th>Lock</th><th>Attrition</th></tr></thead><tbody>`;
     const sorted = [...allProvinces].sort(
@@ -437,12 +437,21 @@ function renderMonitorUI() {
       const isOurs = p.ownerId === ourParticipantId;
       const isAttacked = p.conquestProgress?.length > 0;
       const isUnlocked = !p.lockedUntil || lockSecs <= 0;
+      const category =
+        isAttacked && isOurs ? 'attack'
+        : isOurs ? 'ours'
+        : isUnlocked ? 'unlocked'
+        : 'other';
       const rowClass =
-        isAttacked && isOurs ? 'table-danger'
-        : isOurs ? 'table-success'
-        : isUnlocked ? 'table-warning'
+        category === 'attack' ? 'table-danger'
+        : category === 'ours' ? 'table-success'
+        : category === 'unlocked' ? 'table-warning'
         : '';
-      html += `<tr class="${rowClass}">
+      const hidden =
+        activeFilter && activeFilter !== category ?
+          ' style="display:none;"'
+        : '';
+      html += `<tr class="${rowClass}" data-category="${category}"${hidden}>
         <td>${getProvinceName(p.id)}</td>
         <td>${getParticipantName(p.ownerId)}</td>
         <td>${p.victoryPoints ?? 0}</td>
@@ -493,6 +502,16 @@ function renderMonitorUI() {
   // Make tables sortable
   const tables = monitorDiv.querySelectorAll('table');
   tables.forEach((tbl) => makeSortable(tbl));
+
+  // Wire up filter badge clicks
+  monitorDiv.querySelectorAll('.gbg-filter').forEach((badge) => {
+    badge.addEventListener('click', () => {
+      const filter = badge.dataset.filter;
+      activeFilter =
+        filter === 'clear' || activeFilter === filter ? null : filter;
+      renderMonitorUI();
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -59,12 +59,20 @@ export const neighborGBRequestIds = new Set();
 // Scanner requestIds live in a separate range (1,000,000+) so they never
 // collide with the game client's own counter (which increments from ~30-500).
 // The server accepts non-sequential IDs; it only rejects duplicates.
+// GBG monitor uses 2,000,000+ to avoid collisions with scanner IDs.
 const SCANNER_ID_BASE = 1_000_000;
+const GBG_MONITOR_ID_BASE = 2_000_000;
 let lastUsedRequestId = SCANNER_ID_BASE;
+let lastUsedGBGRequestId = GBG_MONITOR_ID_BASE;
 
 function getNextRequestId() {
   lastUsedRequestId += 1;
   return lastUsedRequestId;
+}
+
+function getNextGBGRequestId() {
+  lastUsedGBGRequestId += 1;
+  return lastUsedGBGRequestId;
 }
 
 // POSTs a game API payload with automatic retry.
@@ -137,6 +145,47 @@ export async function postGameRequest(payloadTemplate) {
         '):',
         err.message,
       );
+      if (attempt === MAX_RETRIES) throw err;
+    }
+  }
+}
+
+// POSTs a GBG monitor API payload using the 2M+ request ID range.
+export async function postGBGRequest(payloadTemplate) {
+  const MAX_RETRIES = 3;
+
+  if (!gameJsonUrl) {
+    throw new Error(
+      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
+    );
+  }
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise((res) => setTimeout(res, 300 * attempt));
+    }
+
+    const nextId = getNextGBGRequestId();
+    neighborGBRequestIds.add(nextId);
+    try {
+      const result = await sendJsonRequestAtomic(payloadTemplate, {
+        gameUrl: gameJsonUrl,
+        clientId: gameRequestHeaders['client-identification'] || '',
+        requestId: nextId,
+      });
+
+      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
+
+      if (
+        Array.isArray(result.response) &&
+        result.response[0]?.__class__ === 'Error'
+      ) {
+        throw new Error(result.response[0].message ?? 'Game server error');
+      }
+
+      return result.response;
+    } catch (err) {
+      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
       if (attempt === MAX_RETRIES) throw err;
     }
   }
