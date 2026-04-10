@@ -687,6 +687,19 @@ function handleRequestFinished(request) {
         }
       }
       gameRequestHeaders = capturedHeaders;
+
+      // Sync the captured URL + client-ID into the page-context tracker so
+      // NeighborGBService's XHRs have a valid endpoint even if no game XHR
+      // has gone through the monkey-patched XMLHttpRequest since install.
+      const syncUrl = gameJsonUrl.replace(/'/g, "\\'");
+      const syncClientId = (capturedHeaders['client-identification'] || '').replace(/'/g, "\\'");
+      chrome.devtools.inspectedWindow.eval(
+        `(function() {
+          if (!window.__foeInfoTracker) return;
+          window.__foeInfoTracker.lastGameUrl = '${syncUrl}';
+          if ('${syncClientId}') window.__foeInfoTracker.lastClientId = '${syncClientId}';
+        })()`,
+      );
     }
     // console.debug(request.request.headers);
     contentType = request.request.headers.find(
