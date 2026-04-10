@@ -43,13 +43,14 @@ import { sendJsonRequestAtomic, isSecretDiscovered, tryDiscoverSecret } from '..
 // responses through the normal game handler paths.
 export const neighborGBRequestIds = new Set();
 
-// Local requestId counter — always the highest ID we've used or seen.
-// Starts at 0; getNextRequestId() picks max(this, gameRequestId) + 1.
-let lastUsedRequestId = 0;
+// Scanner requestIds live in a separate range (1,000,000+) so they never
+// collide with the game client's own counter (which increments from ~30-500).
+// The server accepts non-sequential IDs; it only rejects duplicates.
+const SCANNER_ID_BASE = 1_000_000;
+let lastUsedRequestId = SCANNER_ID_BASE;
 
 function getNextRequestId() {
-  const base = Math.max(lastUsedRequestId, gameRequestId);
-  lastUsedRequestId = base + 1;
+  lastUsedRequestId += 1;
   return lastUsedRequestId;
 }
 
