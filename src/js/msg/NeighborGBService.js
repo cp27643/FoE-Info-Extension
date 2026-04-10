@@ -238,21 +238,18 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     const snipeProfit = rewardFP - snipeCost;
     const lockProfit = rewardFP - lockCost;
 
-    // Only include if at least the risky snipe would be profitable
-    if (snipeProfit <= 0) continue;
+    // Only include positions where the safe lock is profitable
+    if (lockProfit <= 0) continue;
 
     const holder = rankings?.find((p) => p.rank === rank);
     spots.push({
       rank,
       currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
       currentFP,
-      snipeCost,
       lockCost,
       rewardFP,
       baseRewardFP: rewards[index],
-      snipeProfit,
       lockProfit,
-      isSafeLockProfitable: lockProfit > 0,
     });
   }
 
@@ -397,14 +394,9 @@ function showPassiveResults(results) {
       `${r.currentProgress}/${r.maxProgress ?? '?'} FP (${pct}%)`;
 
     for (const spot of r.profitableSpots) {
-      const isSafe = spot.isSafeLockProfitable;
-      const cost = isSafe ? spot.lockCost : spot.snipeCost;
-      const profit = isSafe ? spot.lockProfit : spot.snipeProfit;
-      const cls = isSafe ? 'text-success' : 'text-warning';
-      const label = isSafe ? '🔒' : '⚡';
       html +=
-        `<div class="ms-2 ${cls}">${label} P${spot.rank} ${spot.currentHolder}: ` +
-        `${cost}FP → ${spot.rewardFP}FP (${profit > 0 ? '+' : ''}${profit}FP)</div>`;
+        `<div class="ms-2 text-success">🔒 P${spot.rank} ${spot.currentHolder}: ` +
+        `${spot.lockCost}FP → ${spot.rewardFP}FP (${spot.lockProfit}FP profit)</div>`;
     }
     html += `</div>`;
   }
@@ -433,21 +425,14 @@ function showScanResults(profitable, scanned, total) {
     }
   }
 
-  // Sort: safe-lock profitable first, then by highest absolute profit
-  allSpots.sort((a, b) => {
-    if (a.spot.isSafeLockProfitable !== b.spot.isSafeLockProfitable) {
-      return a.spot.isSafeLockProfitable ? -1 : 1;
-    }
-    const profitA = a.spot.isSafeLockProfitable ? a.spot.lockProfit : a.spot.snipeProfit;
-    const profitB = b.spot.isSafeLockProfitable ? b.spot.lockProfit : b.spot.snipeProfit;
-    return profitB - profitA;
-  });
+  // Sort by highest lock profit first
+  allSpots.sort((a, b) => b.spot.lockProfit - a.spot.lockProfit);
 
   if (allSpots.length) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
-        <th>Lock Cost</th><th>Reward</th><th>Profit</th><th></th>
+        <th>Lock Cost</th><th>Reward</th><th>Profit</th>
       </tr></thead><tbody>`;
 
     for (const entry of allSpots) {
@@ -455,21 +440,15 @@ function showScanResults(profitable, scanned, total) {
       const pct = entry.maxProgress > 0
         ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
         : '?';
-      const isSafe = spot.isSafeLockProfitable;
-      const cost = isSafe ? spot.lockCost : spot.snipeCost;
-      const profit = isSafe ? spot.lockProfit : spot.snipeProfit;
-      const cls = isSafe ? 'text-success' : 'text-warning';
-      const label = isSafe ? '🔒 Safe' : '⚡ Snipe';
       html += `<tr>
         <td>${entry.hoodIndex ?? ''}</td>
         <td>${entry.playerName}</td>
         <td>${entry.name} Lv${entry.level}</td>
         <td>${pct}%</td>
         <td>#${spot.rank} ${spot.currentHolder}</td>
-        <td>${cost}</td>
+        <td>${spot.lockCost}</td>
         <td>${spot.rewardFP}</td>
-        <td class="${cls}">${profit}</td>
-        <td class="${cls}">${label}</td>
+        <td class="text-success">${spot.lockProfit}</td>
       </tr>`;
     }
     html += `</tbody></table>`;
