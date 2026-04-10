@@ -446,7 +446,7 @@ function showScanResults(profitable, scanned, total) {
   if (allSpots.length) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
-        <th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
+        <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
         <th>Lock Cost</th><th>Reward</th><th>Profit</th><th></th>
       </tr></thead><tbody>`;
 
@@ -461,13 +461,14 @@ function showScanResults(profitable, scanned, total) {
       const cls = isSafe ? 'text-success' : 'text-warning';
       const label = isSafe ? '🔒 Safe' : '⚡ Snipe';
       html += `<tr>
+        <td>${entry.hoodIndex ?? ''}</td>
         <td>${entry.playerName}</td>
         <td>${entry.name} Lv${entry.level}</td>
         <td>${pct}%</td>
         <td>#${spot.rank} ${spot.currentHolder}</td>
-        <td>${cost} FP</td>
-        <td>${spot.rewardFP} FP</td>
-        <td class="${cls}">${profit > 0 ? '+' : ''}${profit} FP</td>
+        <td>${cost}</td>
+        <td>${spot.rewardFP}</td>
+        <td class="${cls}">${profit}</td>
         <td class="${cls}">${label}</td>
       </tr>`;
     }
@@ -542,6 +543,7 @@ export async function scanAllNeighborGBs() {
         if (r.profitableSpots.length) {
           profitable.push({
             playerName,
+            hoodIndex: i + 1,
             name: r.name,
             level: r.level,
             currentProgress: r.currentProgress,
