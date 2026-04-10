@@ -31,6 +31,7 @@
 
 import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, gameRequestId } from '../index.js';
 import { hoodlist } from './OtherPlayerService.js';
+import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
 import { sendJsonRequestAtomic } from '../fn/requestIdTracker.js';
 
@@ -153,17 +154,17 @@ function extractGBRows(response) {
   return [];
 }
 
-// Extracts the rankings array from a getConstruction response.
-// Shape: responseData.rankings on the GreatBuildingsService ServerResponse entry.
-function extractRankings(response) {
+// Extracts the full construction data from a getConstruction response.
+// Returns responseData which contains rankings, state, current_progress, etc.
+function extractConstruction(response) {
   if (!Array.isArray(response)) return null;
   for (const item of response) {
     if (
       item?.requestClass === 'GreatBuildingsService' &&
       item?.requestMethod === 'getConstruction' &&
-      Array.isArray(item?.responseData?.rankings)
+      item?.responseData
     ) {
-      return item.responseData.rankings;
+      return item.responseData;
     }
   }
   return null;
@@ -173,40 +174,86 @@ function extractRankings(response) {
 // Profit calculation
 // ---------------------------------------------------------------------------
 
-// For each reward rank (1–5), determines the minimum FP needed to secure it
-// and whether that investment meets the 20% profit threshold given the player's
-// Arc bonus (donationPercent / 100 = arcMultiplier).
-function calculateProfitableSpots(rankings, remaining, arcMultiplier) {
-  const spots = [];
+// For each reward rank (1–5), calculates the true cost to secure a position
+// using the same formula as getPlaceValues() in GreatBuildingsService.js:
+//
+//   maxBelowFP  = max FP among contributors at or below the target rank
+//                 (including rank 6 — the first unranked contributor)
+//   lockCost    = max(ceil((maxBelowFP + remaining) / 2), currentRankFP + 1)
+//   reward      = baseReward × (1 + ArcBonus / 100)
+//   profit      = reward − lockCost
+//
+// A "snipeCost" (just beat current holder) is also returned for reference.
+function calculateProfitableSpots(rankings, remaining, arcBonus) {
+  // Build Top[0..5] array exactly like GreatBuildingsService does.
+  // Top[0] through Top[4] = FP at ranks 1-5, Top[5] = rank 6 (first unranked).
+  const Top = [0, 0, 0, 0, 0, 0];
+  const rewards = [0, 0, 0, 0, 0];
 
   for (const place of rankings ?? []) {
-    if (!place.rank || place.rank > 5) continue; // ranks 1–5 only
-    if (!place.reward?.strategy_point_amount) continue; // must have a reward
-
-    const isVacant =
-      !place.player?.name || place.player.name === 'No contributor yet';
-    const currentFP = place.forge_points ?? 0;
-
-    // Minimum FP to secure the rank: take over from current holder or claim vacant spot
-    const fpNeeded = isVacant ? 1 : currentFP + 1;
-    if (remaining != null && fpNeeded > remaining) continue; // not enough room left
-
-    const rewardFP = place.reward.strategy_point_amount;
-    const actualReward = Math.round(rewardFP * arcMultiplier);
-    const profitFP = actualReward - fpNeeded;
-    const profitMargin = Math.round((profitFP / fpNeeded) * 100);
-
-    if (profitMargin >= 20) {
-      spots.push({
-        rank: place.rank,
-        currentHolder: isVacant ? '(open)' : place.player.name,
-        fpNeeded,
-        rewardFP,
-        actualReward,
-        profitFP,
-        profitMargin,
-      });
+    const rank = place.rank;
+    if (!rank) continue;
+    if (rank >= 1 && rank <= 5) {
+      Top[rank - 1] = place.forge_points ?? 0;
+      rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
+    } else if (rank === 6) {
+      Top[5] = place.forge_points ?? 0;
     }
+  }
+
+  const remainingFP = remaining ?? 0;
+  const arcMultiplier = 1 + (arcBonus ?? 90) / 100;
+  const spots = [];
+
+  for (let index = 0; index < 5; index++) {
+    if (!rewards[index]) continue;
+
+    const rank = index + 1;
+    const isVacant =
+      !rankings?.find(
+        (p) =>
+          p.rank === rank &&
+          p.player?.name &&
+          p.player.name !== 'No contributor yet',
+      );
+    const currentFP = Top[index];
+
+    // Snipe cost: just beat the current holder (risky)
+    const snipeCost = isVacant ? 1 : currentFP + 1;
+    if (remainingFP > 0 && snipeCost > remainingFP) continue;
+
+    // Lock cost: same formula as getPlaceValues() in GreatBuildingsService.
+    // maxBelowFP = highest existing FP at this position or below (including rank 6).
+    // Worst-case threat: that player adds ALL leftover FP → their total = maxBelowFP + (remaining - D).
+    // Safe when D ≥ maxBelowFP + remaining - D → D = ceil((maxBelowFP + remaining) / 2).
+    let maxBelowFP = 0;
+    for (let k = index; k < 6; k++) {
+      if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
+    }
+    const lockFromThreat = Math.ceil((maxBelowFP + remainingFP) / 2);
+    const lockToBeat = currentFP + 1;
+    const lockCost = Math.max(lockFromThreat, lockToBeat);
+
+    const rewardFP = Math.round(rewards[index] * arcMultiplier);
+    const snipeProfit = rewardFP - snipeCost;
+    const lockProfit = rewardFP - lockCost;
+
+    // Only include if at least the risky snipe would be profitable
+    if (snipeProfit <= 0) continue;
+
+    const holder = rankings?.find((p) => p.rank === rank);
+    spots.push({
+      rank,
+      currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
+      currentFP,
+      snipeCost,
+      lockCost,
+      rewardFP,
+      baseRewardFP: rewards[index],
+      snipeProfit,
+      lockProfit,
+      isSafeLockProfitable: lockProfit > 0,
+    });
   }
 
   return spots;
@@ -220,8 +267,8 @@ function calculateProfitableSpots(rankings, remaining, arcMultiplier) {
 // in the passive path, or from extractGBRows() in the active path).
 // For buildings with current_progress > 0, calls getConstruction and scores profit.
 async function processGBRows(rowsData) {
-  const arcMultiplier = (donationPercent ?? 190) / 100;
-  console.log('[NeighborGB] processGBRows — input rows:', (rowsData ?? []).length, 'arcMultiplier:', arcMultiplier);
+  const arcBonus = City.ArcBonus ?? 90;
+  console.log('[NeighborGB] processGBRows — input rows:', (rowsData ?? []).length, 'ArcBonus:', arcBonus);
 
   const activeRows = (rowsData ?? [])
     .filter(
@@ -263,18 +310,38 @@ async function processGBRows(rowsData) {
       row.maxProgress != null ? row.maxProgress - row.currentProgress : null;
     let profitableSpots = [];
 
+    // More accurate progress from the construction endpoint
+    let accurateRemaining = remaining;
+    let accurateProgress = row.currentProgress;
+    let accurateMax = row.maxProgress;
+
     try {
       const constructionResponse = await getNeighborConstruction(
         row.entityId,
         row.playerId,
       );
-      const rankings = extractRankings(constructionResponse);
-      if (rankings) {
-        profitableSpots = calculateProfitableSpots(
-          rankings,
-          remaining,
-          arcMultiplier,
-        );
+      const construction = extractConstruction(constructionResponse);
+      if (construction) {
+        // Use construction data for more accurate progress if available
+        const cp =
+          construction.state?.current_progress ??
+          construction.current_progress;
+        const mp =
+          construction.state?.max_progress ?? construction.max_progress;
+        if (cp != null) accurateProgress = cp;
+        if (mp != null) accurateMax = mp;
+        if (accurateMax != null && accurateProgress != null) {
+          accurateRemaining = accurateMax - accurateProgress;
+        }
+
+        const rankings = construction.rankings ?? [];
+        if (rankings.length) {
+          profitableSpots = calculateProfitableSpots(
+            rankings,
+            accurateRemaining,
+            arcBonus,
+          );
+        }
       }
     } catch (err) {
       console.warn(
@@ -291,8 +358,9 @@ async function processGBRows(rowsData) {
       entityId: row.entityId,
       name: row.name,
       level: row.level,
-      maxProgressFromOverview: row.maxProgress,
-      currentProgress: row.currentProgress,
+      maxProgress: accurateMax ?? row.maxProgress,
+      currentProgress: accurateProgress,
+      remaining: accurateRemaining,
       profitableSpots,
     });
   }
@@ -323,15 +391,20 @@ function showPassiveResults(results) {
     <p><strong>GB Progress: ${playerName}</strong></p>`;
 
   for (const r of results) {
-    const pct = progressPct(r.currentProgress, r.maxProgressFromOverview);
+    const pct = progressPct(r.currentProgress, r.maxProgress);
     html +=
       `<div><strong>${r.name}</strong> Lv${r.level}: ` +
-      `${r.currentProgress}/${r.maxProgressFromOverview ?? '?'} FP (${pct}%)`;
+      `${r.currentProgress}/${r.maxProgress ?? '?'} FP (${pct}%)`;
 
     for (const spot of r.profitableSpots) {
+      const isSafe = spot.isSafeLockProfitable;
+      const cost = isSafe ? spot.lockCost : spot.snipeCost;
+      const profit = isSafe ? spot.lockProfit : spot.snipeProfit;
+      const cls = isSafe ? 'text-success' : 'text-warning';
+      const label = isSafe ? '🔒' : '⚡';
       html +=
-        `<div class="ms-2 text-success">Rank ${spot.rank} ${spot.currentHolder}: ` +
-        `${spot.fpNeeded}FP → ${spot.actualReward}FP (+${spot.profitMargin}%)</div>`;
+        `<div class="ms-2 ${cls}">${label} P${spot.rank} ${spot.currentHolder}: ` +
+        `${cost}FP → ${spot.rewardFP}FP (${profit > 0 ? '+' : ''}${profit}FP)</div>`;
     }
     html += `</div>`;
   }
@@ -342,37 +415,65 @@ function showPassiveResults(results) {
 
 // Renders full-scan results (all neighbors) into gbScanDiv.
 function showScanResults(profitable, scanned, total) {
+  const arcBonus = City.ArcBonus ?? 90;
   const status =
     total > 0 ?
-      `Scanned ${scanned}/${total} neighbors — ${profitable.length} profitable spot(s)`
+      `Scanned ${scanned}/${total} neighbors — ${profitable.length} building(s) with opportunities (Arc ${arcBonus}%)`
     : 'Scanning…';
 
   let html = `<div class="alert alert-warning alert-dismissible show" role="alert">
     ${element.close()}
-    <p><strong>Hood GB Profit Scan</strong> — <small>${status}</small></p>`;
+    <p><strong>Hood GB Snipe Scanner</strong> — <small>${status}</small></p>`;
 
-  if (profitable.length) {
+  // Flatten all spots with parent info for sorting
+  const allSpots = [];
+  for (const item of profitable) {
+    for (const spot of item.spots) {
+      allSpots.push({ ...item, spot });
+    }
+  }
+
+  // Sort: safe-lock profitable first, then by highest absolute profit
+  allSpots.sort((a, b) => {
+    if (a.spot.isSafeLockProfitable !== b.spot.isSafeLockProfitable) {
+      return a.spot.isSafeLockProfitable ? -1 : 1;
+    }
+    const profitA = a.spot.isSafeLockProfitable ? a.spot.lockProfit : a.spot.snipeProfit;
+    const profitB = b.spot.isSafeLockProfitable ? b.spot.lockProfit : b.spot.snipeProfit;
+    return profitB - profitA;
+  });
+
+  if (allSpots.length) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
-        <th>Player</th><th>Building</th><th>Rank</th>
-        <th>FP needed</th><th>Reward</th><th>Margin</th>
+        <th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
+        <th>Lock Cost</th><th>Reward</th><th>Profit</th><th></th>
       </tr></thead><tbody>`;
 
-    for (const item of profitable) {
-      for (const spot of item.spots) {
-        html += `<tr>
-          <td>${item.playerName}</td>
-          <td>${item.name} Lv${item.level}</td>
-          <td>#${spot.rank} ${spot.currentHolder}</td>
-          <td>${spot.fpNeeded}</td>
-          <td>${spot.actualReward}FP</td>
-          <td class="text-success">+${spot.profitMargin}%</td>
-        </tr>`;
-      }
+    for (const entry of allSpots) {
+      const { spot } = entry;
+      const pct = entry.maxProgress > 0
+        ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
+        : '?';
+      const isSafe = spot.isSafeLockProfitable;
+      const cost = isSafe ? spot.lockCost : spot.snipeCost;
+      const profit = isSafe ? spot.lockProfit : spot.snipeProfit;
+      const cls = isSafe ? 'text-success' : 'text-warning';
+      const label = isSafe ? '🔒 Safe' : '⚡ Snipe';
+      html += `<tr>
+        <td>${entry.playerName}</td>
+        <td>${entry.name} Lv${entry.level}</td>
+        <td>${pct}%</td>
+        <td>#${spot.rank} ${spot.currentHolder}</td>
+        <td>${cost} FP</td>
+        <td>${spot.rewardFP} FP</td>
+        <td class="${cls}">${profit > 0 ? '+' : ''}${profit} FP</td>
+        <td class="${cls}">${label}</td>
+      </tr>`;
     }
     html += `</tbody></table>`;
   } else if (scanned === total && total > 0) {
-    html += `<p class="mb-0">No profitable spots found at your current Arc bonus.</p>`;
+    html += `<p class="mb-0">No profitable spots found at your current Arc bonus (${arcBonus}%).</p>`;
   }
 
   html += `</div>`;
@@ -443,6 +544,9 @@ export async function scanAllNeighborGBs() {
             playerName,
             name: r.name,
             level: r.level,
+            currentProgress: r.currentProgress,
+            maxProgress: r.maxProgress,
+            remaining: r.remaining,
             spots: r.profitableSpots,
           });
         }
@@ -460,13 +564,7 @@ export async function scanAllNeighborGBs() {
     await new Promise((res) => setTimeout(res, 50));
   }
 
-  // Sort by highest profit margin first
-  profitable.sort(
-    (a, b) =>
-      Math.max(...b.spots.map((s) => s.profitMargin)) -
-      Math.max(...a.spots.map((s) => s.profitMargin)),
-  );
-
+  // Sorting is handled in showScanResults (safe-lock first, then by profit)
   showScanResults(profitable, total, total);
   console.log(
     '[NeighborGB] Scan complete —',
