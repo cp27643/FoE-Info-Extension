@@ -62,11 +62,29 @@ if (url && url.hasOwnProperty('sheetGameURL'))
 
 export function getConstruction(msg, requestData) {
   rankings = msg.responseData.rankings;
-  const buildingId =
-    requestData &&
-    requestData[0] &&
-    requestData[0].requestData &&
-    requestData[0].requestData[0];
+
+  // Find the buildingId from the matching request in the batch.
+  // The POST body contains ALL batched requests — we must match by requestId
+  // to find the getConstruction request, not just take requestData[0].
+  let buildingId = null;
+  if (requestData) {
+    for (const req of requestData) {
+      if (req.requestId === msg.requestId) {
+        buildingId = req.requestData && req.requestData[0];
+        break;
+      }
+    }
+    // Fallback: match by requestMethod if requestId matching failed
+    if (!buildingId) {
+      for (const req of requestData) {
+        if (req.requestMethod === 'getConstruction') {
+          buildingId = req.requestData && req.requestData[0];
+          break;
+        }
+      }
+    }
+  }
+
   console.log(
     '[GB] getConstruction — buildingId:',
     buildingId,
@@ -89,6 +107,14 @@ export function getConstruction(msg, requestData) {
       GBselected.total,
       GBselected.current,
     );
+    // Update FP state from the response directly so the panel isn't fully stale
+    const state = msg.responseData.state;
+    if (state) {
+      if (state.forge_points_for_level_up)
+        GBselected.total = state.forge_points_for_level_up;
+      if (state.invested_forge_points != null)
+        GBselected.current = state.invested_forge_points;
+    }
   }
   showGreatBuldingDonation();
 }
@@ -705,9 +731,24 @@ export function showGreatBuldingDonation() {
 }
 
 export function getConstructionRanking(msg, data) {
+  // Find the matching request in the batch by requestId, then by method
+  let matchedReq = null;
   for (var j = 0; j < data.length; j++) {
-    // console.debug(data[j].requestData[2]);
-    GBselected.level = data[j].requestData[2];
+    if (data[j].requestId === msg.requestId) {
+      matchedReq = data[j];
+      break;
+    }
+  }
+  if (!matchedReq) {
+    for (var j = 0; j < data.length; j++) {
+      if (data[j].requestMethod === 'getConstructionRanking') {
+        matchedReq = data[j];
+        break;
+      }
+    }
+  }
+  if (matchedReq && matchedReq.requestData) {
+    GBselected.level = matchedReq.requestData[2];
   }
   // var donorContainer = null;
 
