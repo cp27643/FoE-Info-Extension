@@ -30,6 +30,7 @@ import {
   toolOptions,
 } from './fn/globals.js';
 import * as helper from './fn/helper.js';
+import { ensureRequestTrackerInstalled } from './fn/requestIdTracker.js';
 import * as storage from './fn/storage.js';
 import * as element from './fn/AddElement';
 import { armyUnitManagementService } from './msg/ArmyUnitManagementService.js';
@@ -645,6 +646,13 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 );
 
 browser.devtools.network.onRequestFinished.addListener(handleRequestFinished);
+
+ensureRequestTrackerInstalled().catch((error) => {
+  console.debug(
+    'Request tracker install skipped:',
+    error && error.message ? error.message : error,
+  );
+});
 
 // When a network request has finished this function will be called.
 // browser.devtools.network.onRequestFinished.addListener().then(request => {
