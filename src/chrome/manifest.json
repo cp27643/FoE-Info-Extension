@@ -39,6 +39,15 @@
     "https://discord.com/api/webhooks/*",
     "https://*.innogamescdn.com/*"
   ],
+  "content_scripts": [
+    {
+      "matches": ["https://*.forgeofempires.com/*"],
+      "include_globs": ["*forgeofempires.com/game*"],
+      "js": ["wsProxy.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
   "web_accessible_resources": [
     {
       "resources": ["browser-polyfill.js"],

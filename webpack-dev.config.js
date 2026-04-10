@@ -113,6 +113,7 @@ module.exports = {
         { from: './src/icons/common', to: 'icons' },
         { from: './src/icons/foe-info', to: 'icons' },
         { from: 'src/images/logo90.png', to: 'icons/' },
+        { from: 'src/js/wsProxy.js', to: './' },
       ],
     }),
     new WebpackExtensionManifestPlugin({
