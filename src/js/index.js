@@ -32,7 +32,6 @@ import {
 import * as helper from './fn/helper.js';
 import * as storage from './fn/storage.js';
 import * as element from './fn/AddElement';
-import { installTracker } from './fn/requestIdTracker.js';
 import { armyUnitManagementService } from './msg/ArmyUnitManagementService.js';
 import { getBonuses, getLimitedBonuses } from './msg/BonusService.js';
 import { pickupProduction } from './msg/CityProductionService.js';
@@ -339,9 +338,6 @@ export var gbScanDiv = document.createElement('div');
 content.appendChild(gbScanDiv);
 gbScanDiv.id = 'gbScan';
 initGBScanUI();
-installTracker().catch((err) =>
-  console.warn('[FoE-Info] Failed to install request tracker:', err.message),
-);
 export var cultural = document.createElement('div');
 content.appendChild(cultural);
 cultural.id = 'cultural';
@@ -687,19 +683,6 @@ function handleRequestFinished(request) {
         }
       }
       gameRequestHeaders = capturedHeaders;
-
-      // Sync the captured URL + client-ID into the page-context tracker so
-      // NeighborGBService's XHRs have a valid endpoint even if no game XHR
-      // has gone through the monkey-patched XMLHttpRequest since install.
-      const syncUrl = gameJsonUrl.replace(/'/g, "\\'");
-      const syncClientId = (capturedHeaders['client-identification'] || '').replace(/'/g, "\\'");
-      chrome.devtools.inspectedWindow.eval(
-        `(function() {
-          if (!window.__foeInfoTracker) return;
-          window.__foeInfoTracker.lastGameUrl = '${syncUrl}';
-          if ('${syncClientId}') window.__foeInfoTracker.lastClientId = '${syncClientId}';
-        })()`,
-      );
     }
     // console.debug(request.request.headers);
     contentType = request.request.headers.find(

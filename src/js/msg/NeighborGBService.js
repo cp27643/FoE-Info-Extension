@@ -29,7 +29,7 @@
  * steal the same requestId.
  */
 
-import { overview, gbScanDiv, donationPercent } from '../index.js';
+import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, gameRequestId } from '../index.js';
 import { hoodlist } from './OtherPlayerService.js';
 import * as element from '../fn/AddElement';
 import { sendJsonRequestAtomic } from '../fn/requestIdTracker.js';
@@ -48,6 +48,11 @@ export const neighborGBRequestIds = new Set();
 async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
   console.log('[NeighborGB] postGameRequest called, method:', payloadTemplate[0]?.requestMethod);
+  console.log('[NeighborGB] gameJsonUrl available:', !!gameJsonUrl, 'gameRequestId:', gameRequestId);
+
+  if (!gameJsonUrl) {
+    throw new Error('Game URL not captured yet — play the game for a moment so network traffic is intercepted.');
+  }
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
@@ -56,7 +61,11 @@ async function postGameRequest(payloadTemplate) {
     }
 
     try {
-      const result = await sendJsonRequestAtomic(payloadTemplate);
+      const result = await sendJsonRequestAtomic(payloadTemplate, {
+        gameUrl: gameJsonUrl,
+        clientId: gameRequestHeaders['client-identification'] || '',
+        requestId: gameRequestId,
+      });
       console.log('[NeighborGB] sendJsonRequestAtomic returned, requestId:', result?.requestId, 'response type:', typeof result?.response, 'is array:', Array.isArray(result?.response));
 
       // Register the claimed requestId so index.js skips double-processing
