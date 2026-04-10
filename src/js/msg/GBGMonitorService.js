@@ -463,8 +463,7 @@ function renderMonitorUI() {
   const underAttack = ourNonSpawn.filter((p) => p.conquestProgress?.length > 0);
   const allAttacks = currentMap.filter((p) => p.conquestProgress?.length > 0);
 
-  let html = `<div class="alert alert-info alert-dismissible show" role="alert">
-    ${element.close()}
+  let html = `<div class="alert alert-info show" role="alert">
     <p><strong>GBG Monitor</strong>
     <small class="text-muted ms-2">${isMonitoring ? '🟢 Active' : '🔴 Stopped'} | ${ourProvinces.length} provinces held</small></p>
     <p class="mb-1 small">Filter:

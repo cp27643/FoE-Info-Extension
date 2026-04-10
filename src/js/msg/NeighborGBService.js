@@ -37,7 +37,9 @@ import {
   gameRequestHeaders,
   gameRequestId,
   PlayerID,
+  availablePacksFP,
 } from '../index.js';
+import { availableFP } from './ResourceService.js';
 import { hoodlist } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -564,6 +566,9 @@ function showScanResults(profitable, scanned, total) {
   });
 
   if (dedupedSpots.length) {
+    const totalFP = (availablePacksFP || 0) + (availableFP || 0);
+    const fpLabel = totalFP > 0 ? ` | Available FP: ${totalFP.toLocaleString()}` : '';
+    html += `<p class="mb-1 small text-muted">${fpLabel ? fpLabel.slice(3) : ''}</p>`;
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
@@ -576,13 +581,24 @@ function showScanResults(profitable, scanned, total) {
         entry.maxProgress > 0 ?
           Math.round((entry.currentProgress / entry.maxProgress) * 100)
         : '?';
-      html += `<tr>
+      const canAfford = totalFP > 0 && spot.lockCost <= totalFP;
+      const rowClass =
+        totalFP > 0 ?
+          canAfford ? ''
+          : 'table-secondary'
+        : '';
+      const costClass =
+        totalFP > 0 ?
+          canAfford ? 'text-success fw-bold'
+          : 'text-danger'
+        : '';
+      html += `<tr class="${rowClass}">
         <td>${entry.hoodIndex ?? ''}</td>
         <td>${entry.playerName}</td>
         <td>${entry.name} Lv${entry.level}</td>
         <td>${pct}%</td>
         <td>#${spot.rank} ${spot.currentHolder}</td>
-        <td>${spot.lockCost}</td>
+        <td class="${costClass}">${spot.lockCost}</td>
         <td>${spot.rewardFP}</td>
         <td class="text-success">${spot.lockProfit}</td>
         <td>${spot.profitPct}%</td>
