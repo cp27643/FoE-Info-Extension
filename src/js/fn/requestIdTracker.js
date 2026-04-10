@@ -88,22 +88,29 @@ export async function installTracker() {
  * ServerRequest objects — requestId on the first element will be overwritten
  * with the claimed value.
  *
- * Everything happens inside one eval(): read maxRequestId → claim next →
- * compute SHA-1 signature (microtask-safe) → fire XHR. The game's setInterval
- * timer cannot interleave because the crypto.subtle continuation runs as a
- * microtask before any macrotask.
+ * The requestId claim + XHR dispatch happen inside a single eval() so the
+ * game's periodic timer cannot steal the same ID. Because
+ * chrome.devtools.inspectedWindow.eval() cannot return Promises, the async
+ * result (SHA-1 + XHR) is stored on window.__foeInfoTracker.pendingResults
+ * and retrieved via polling.
  *
  * Returns { requestId: number, response: any }.
  * Throws on network error, invalid JSON, or tracker-not-ready.
  */
 export async function sendJsonRequestAtomic(payloadTemplate) {
   const payloadJson = JSON.stringify(payloadTemplate);
+  const callbackKey = `_foeReq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
   const script = `(function() {
     var tracker = window.__foeInfoTracker;
     if (!tracker || !tracker.lastGameUrl) {
-      return Promise.resolve({ __error__: 'Tracker not ready or no game URL captured' });
+      if (!tracker) window.__foeInfoTracker = { pendingResults: {} };
+      if (!window.__foeInfoTracker.pendingResults) window.__foeInfoTracker.pendingResults = {};
+      window.__foeInfoTracker.pendingResults['${callbackKey}'] =
+        { __error__: 'Tracker not ready or no game URL captured' };
+      return true;
     }
+    if (!tracker.pendingResults) tracker.pendingResults = {};
 
     var payload = ${payloadJson};
     var nextId = tracker.maxRequestId + 1;
@@ -114,45 +121,80 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
     var clientId = tracker.lastClientId ||
       'version=1.332; requiredVersion=1.332; platform=bro; platformType=html5; platformVersion=web';
 
-    return crypto.subtle.digest('SHA-1', new TextEncoder().encode(bodyStr))
+    crypto.subtle.digest('SHA-1', new TextEncoder().encode(bodyStr))
       .then(function(hashBuffer) {
         var hex = Array.from(new Uint8Array(hashBuffer))
           .map(function(b) { return b.toString(16).padStart(2, '0'); })
           .join('');
         var signature = hex.substring(0, 10);
 
-        return new Promise(function(resolve) {
-          var xhr = new XMLHttpRequest();
-          xhr.open('POST', tracker.lastGameUrl, true);
-          xhr.withCredentials = true;
-          xhr.setRequestHeader('Content-Type', 'application/json');
-          xhr.setRequestHeader('client-identification', clientId);
-          xhr.setRequestHeader('signature', signature);
-          xhr.onreadystatechange = function() {
-            if (xhr.readyState !== 4) return;
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try { resolve({ requestId: nextId, response: JSON.parse(xhr.responseText) }); }
-              catch(e) { resolve({ requestId: nextId, __fetchError__: 'Invalid JSON: ' + e.message }); }
-            } else {
-              resolve({ requestId: nextId, __fetchError__: xhr.status + ' ' + xhr.statusText });
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', tracker.lastGameUrl, true);
+        xhr.withCredentials = true;
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('client-identification', clientId);
+        xhr.setRequestHeader('signature', signature);
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState !== 4) return;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              tracker.pendingResults['${callbackKey}'] =
+                { requestId: nextId, response: JSON.parse(xhr.responseText) };
+            } catch(e) {
+              tracker.pendingResults['${callbackKey}'] =
+                { requestId: nextId, __fetchError__: 'Invalid JSON: ' + e.message };
             }
-          };
-          xhr.onerror = function() { resolve({ requestId: nextId, __fetchError__: 'Network error' }); };
-          xhr.send(bodyStr);
-        });
+          } else {
+            tracker.pendingResults['${callbackKey}'] =
+              { requestId: nextId, __fetchError__: xhr.status + ' ' + xhr.statusText };
+          }
+        };
+        xhr.onerror = function() {
+          tracker.pendingResults['${callbackKey}'] =
+            { requestId: nextId, __fetchError__: 'Network error' };
+        };
+        xhr.send(bodyStr);
+      })
+      .catch(function(err) {
+        tracker.pendingResults['${callbackKey}'] =
+          { __error__: 'SHA-1 failed: ' + err.message };
       });
+
+    return true;
   })()`;
 
-  const result = await evalInPage(script);
+  // Kick off the async XHR in the page context (eval returns synchronously)
+  await evalInPage(script);
 
-  if (result?.__error__) {
-    throw new Error(`[requestIdTracker] ${result.__error__}`);
-  }
-  if (result?.__fetchError__) {
-    throw new Error(`[requestIdTracker] HTTP error: ${result.__fetchError__}`);
+  // Poll for the result stored by the page-context callback
+  const POLL_INTERVAL = 100;
+  const TIMEOUT = 15000;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < TIMEOUT) {
+    await new Promise((res) => setTimeout(res, POLL_INTERVAL));
+
+    const result = await evalInPage(
+      `(function() {
+        var t = window.__foeInfoTracker;
+        var r = t && t.pendingResults && t.pendingResults['${callbackKey}'];
+        if (r) { delete t.pendingResults['${callbackKey}']; }
+        return r || null;
+      })()`,
+    );
+
+    if (result) {
+      if (result.__error__) {
+        throw new Error(`[requestIdTracker] ${result.__error__}`);
+      }
+      if (result.__fetchError__) {
+        throw new Error(`[requestIdTracker] HTTP error: ${result.__fetchError__}`);
+      }
+      return result;
+    }
   }
 
-  return result;
+  throw new Error('[requestIdTracker] Request timed out after 15s');
 }
 
 /**
