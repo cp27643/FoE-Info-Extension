@@ -47,14 +47,17 @@ export const neighborGBRequestIds = new Set();
 // context, so the game's periodic timer cannot steal the same ID.
 async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
+  console.log('[NeighborGB] postGameRequest called, method:', payloadTemplate[0]?.requestMethod);
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
+      console.log('[NeighborGB] Retry attempt', attempt + 1);
       await new Promise((res) => setTimeout(res, 300 * attempt));
     }
 
     try {
       const result = await sendJsonRequestAtomic(payloadTemplate);
+      console.log('[NeighborGB] sendJsonRequestAtomic returned, requestId:', result?.requestId, 'response type:', typeof result?.response, 'is array:', Array.isArray(result?.response));
 
       // Register the claimed requestId so index.js skips double-processing
       if (result.requestId != null) {
@@ -66,16 +69,14 @@ async function postGameRequest(payloadTemplate) {
         Array.isArray(result.response) &&
         result.response[0]?.__class__ === 'Error'
       ) {
+        console.error('[NeighborGB] Game server error:', result.response[0].message);
         throw new Error(result.response[0].message ?? 'Game server error');
       }
 
       return result.response;
     } catch (err) {
+      console.warn('[NeighborGB] Request failed (attempt', attempt + 1, '):', err.message);
       if (attempt === MAX_RETRIES) throw err;
-      console.warn(
-        `[NeighborGB] Request failed (attempt ${attempt + 1}), retrying:`,
-        err.message,
-      );
     }
   }
 }
@@ -85,6 +86,7 @@ async function postGameRequest(payloadTemplate) {
 // ---------------------------------------------------------------------------
 
 async function getNeighborOverview(playerId) {
+  console.log('[NeighborGB] getNeighborOverview for playerId:', playerId);
   return postGameRequest([
     {
       __class__: 'ServerRequest',
@@ -96,6 +98,7 @@ async function getNeighborOverview(playerId) {
 }
 
 async function getNeighborConstruction(entityId, playerId) {
+  console.log('[NeighborGB] getNeighborConstruction entityId:', entityId, 'playerId:', playerId);
   return postGameRequest([
     {
       __class__: 'ServerRequest',
@@ -112,18 +115,23 @@ async function getNeighborConstruction(entityId, playerId) {
 
 // Extracts GreatBuildingContributionRow objects from a getOtherPlayerOverview response.
 function extractGBRows(response) {
+  console.log('[NeighborGB] extractGBRows — response is array:', Array.isArray(response), 'length:', Array.isArray(response) ? response.length : 'N/A');
   if (!Array.isArray(response)) return [];
   for (const item of response) {
+    console.log('[NeighborGB] extractGBRows item — requestClass:', item?.requestClass, 'requestMethod:', item?.requestMethod, 'responseData is array:', Array.isArray(item?.responseData));
     if (
       item?.requestClass === 'GreatBuildingsService' &&
       item?.requestMethod === 'getOtherPlayerOverview' &&
       Array.isArray(item?.responseData)
     ) {
-      return item.responseData.filter(
+      const rows = item.responseData.filter(
         (r) => r?.__class__ === 'GreatBuildingContributionRow',
       );
+      console.log('[NeighborGB] extractGBRows found', rows.length, 'GreatBuildingContributionRow(s)');
+      return rows;
     }
   }
+  console.log('[NeighborGB] extractGBRows — no matching GreatBuildingsService/getOtherPlayerOverview item found');
   return [];
 }
 
@@ -195,6 +203,7 @@ function calculateProfitableSpots(rankings, remaining, arcMultiplier) {
 // For buildings with current_progress > 0, calls getConstruction and scores profit.
 async function processGBRows(rowsData) {
   const arcMultiplier = (donationPercent ?? 190) / 100;
+  console.log('[NeighborGB] processGBRows — input rows:', (rowsData ?? []).length, 'arcMultiplier:', arcMultiplier);
 
   const activeRows = (rowsData ?? [])
     .filter(
@@ -214,6 +223,18 @@ async function processGBRows(rowsData) {
       currentProgress: Number(row.current_progress),
       maxProgress: row.max_progress != null ? Number(row.max_progress) : null,
     }));
+
+  console.log('[NeighborGB] processGBRows — activeRows (current_progress > 0):', activeRows.length);
+  if (activeRows.length) {
+    console.log('[NeighborGB] Active buildings:', activeRows.map(r => `${r.name} Lv${r.level} (${r.currentProgress}/${r.maxProgress})`).join(', '));
+  } else {
+    console.log('[NeighborGB] processGBRows — no buildings with active progress found');
+    if ((rowsData ?? []).length) {
+      const sample = rowsData[0];
+      console.log('[NeighborGB] Sample row keys:', Object.keys(sample || {}));
+      console.log('[NeighborGB] Sample row __class__:', sample?.__class__, 'entity_id:', sample?.entity_id, 'current_progress:', sample?.current_progress, 'player:', JSON.stringify(sample?.player));
+    }
+  }
 
   if (!activeRows.length) return [];
 
@@ -359,7 +380,14 @@ export async function onNeighborOverviewReceived(responseData) {
 // Scans every player in hoodlist: overview → construction → profit analysis.
 // Renders progressive results into gbScanDiv as each player is processed.
 export async function scanAllNeighborGBs() {
+  console.log('[NeighborGB] === SCAN BUTTON CLICKED ===');
+  console.log('[NeighborGB] hoodlist length:', hoodlist.length);
+  if (hoodlist.length) {
+    console.log('[NeighborGB] hoodlist sample [0]:', JSON.stringify(hoodlist[0]));
+  }
+
   if (!hoodlist.length) {
+    console.warn('[NeighborGB] BAIL — hoodlist is empty');
     gbScanDiv.innerHTML = `<div class="alert alert-warning">Hood list not loaded — open the game's hood/social list first.</div>`;
     return;
   }
@@ -370,7 +398,10 @@ export async function scanAllNeighborGBs() {
   const total = neighbors.length;
   const profitable = [];
 
-  console.log('[NeighborGB] Starting full hood scan —', total, 'neighbors');
+  console.log('[NeighborGB] Starting full hood scan —', total, 'neighbors (filtered from', hoodlist.length, 'hoodlist entries)');
+  if (total === 0) {
+    console.warn('[NeighborGB] No entries with is_neighbor found. hoodlist keys sample:', Object.keys(hoodlist[0] || {}));
+  }
 
   for (let i = 0; i < neighbors.length; i++) {
     const neighbor = neighbors[i];
@@ -380,9 +411,13 @@ export async function scanAllNeighborGBs() {
     showScanResults(profitable, i, total);
 
     try {
+      console.log('[NeighborGB] Scanning neighbor', i + 1, '/', total, ':', playerName, '(id:', playerId, ')');
       const overviewResponse = await getNeighborOverview(playerId);
+      console.log('[NeighborGB] overviewResponse for', playerName, '— type:', typeof overviewResponse, 'is array:', Array.isArray(overviewResponse), 'length:', Array.isArray(overviewResponse) ? overviewResponse.length : 'N/A');
       const rows = extractGBRows(overviewResponse);
+      console.log('[NeighborGB] GB rows for', playerName, ':', rows.length);
       const results = await processGBRows(rows);
+      console.log('[NeighborGB] processGBRows results for', playerName, ':', results.length);
 
       for (const r of results) {
         if (r.profitableSpots.length) {

@@ -28,6 +28,7 @@ function evalInPage(script) {
  * subsequent calls are no-ops if the interceptor is already present.
  */
 export async function installTracker() {
+  console.log('[requestIdTracker] installTracker() called');
   const script = `(function() {
     if (window.__foeInfoTracker) return 'already_installed';
 
@@ -101,9 +102,19 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
   const payloadJson = JSON.stringify(payloadTemplate);
   const callbackKey = `_foeReq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
+  console.log('[requestIdTracker] sendJsonRequestAtomic called, callbackKey:', callbackKey);
+  console.log('[requestIdTracker] payloadTemplate:', JSON.stringify(payloadTemplate, null, 2));
+
   const script = `(function() {
     var tracker = window.__foeInfoTracker;
+    console.log('[requestIdTracker:page] tracker state:', JSON.stringify({
+      exists: !!tracker,
+      lastGameUrl: tracker ? tracker.lastGameUrl : null,
+      lastClientId: tracker ? tracker.lastClientId : null,
+      maxRequestId: tracker ? tracker.maxRequestId : null
+    }));
     if (!tracker || !tracker.lastGameUrl) {
+      console.warn('[requestIdTracker:page] BAIL — tracker not ready or no game URL');
       if (!tracker) window.__foeInfoTracker = { pendingResults: {} };
       if (!window.__foeInfoTracker.pendingResults) window.__foeInfoTracker.pendingResults = {};
       window.__foeInfoTracker.pendingResults['${callbackKey}'] =
@@ -121,12 +132,18 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
     var clientId = tracker.lastClientId ||
       'version=1.332; requiredVersion=1.332; platform=bro; platformType=html5; platformVersion=web';
 
+    console.log('[requestIdTracker:page] Claiming requestId:', nextId);
+    console.log('[requestIdTracker:page] POST URL:', tracker.lastGameUrl);
+    console.log('[requestIdTracker:page] Body:', bodyStr.substring(0, 200));
+
     crypto.subtle.digest('SHA-1', new TextEncoder().encode(bodyStr))
       .then(function(hashBuffer) {
         var hex = Array.from(new Uint8Array(hashBuffer))
           .map(function(b) { return b.toString(16).padStart(2, '0'); })
           .join('');
         var signature = hex.substring(0, 10);
+        console.log('[requestIdTracker:page] SHA-1 signature:', signature);
+        console.log('[requestIdTracker:page] Sending XHR now...');
 
         var xhr = new XMLHttpRequest();
         xhr.open('POST', tracker.lastGameUrl, true);
@@ -135,27 +152,34 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
         xhr.setRequestHeader('client-identification', clientId);
         xhr.setRequestHeader('signature', signature);
         xhr.onreadystatechange = function() {
+          console.log('[requestIdTracker:page] XHR readyState:', xhr.readyState, 'status:', xhr.status);
           if (xhr.readyState !== 4) return;
           if (xhr.status >= 200 && xhr.status < 300) {
+            console.log('[requestIdTracker:page] XHR SUCCESS, response length:', xhr.responseText.length);
+            console.log('[requestIdTracker:page] Response preview:', xhr.responseText.substring(0, 300));
             try {
               tracker.pendingResults['${callbackKey}'] =
                 { requestId: nextId, response: JSON.parse(xhr.responseText) };
             } catch(e) {
+              console.error('[requestIdTracker:page] JSON parse failed:', e.message);
               tracker.pendingResults['${callbackKey}'] =
                 { requestId: nextId, __fetchError__: 'Invalid JSON: ' + e.message };
             }
           } else {
+            console.error('[requestIdTracker:page] XHR FAILED:', xhr.status, xhr.statusText);
             tracker.pendingResults['${callbackKey}'] =
               { requestId: nextId, __fetchError__: xhr.status + ' ' + xhr.statusText };
           }
         };
         xhr.onerror = function() {
+          console.error('[requestIdTracker:page] XHR NETWORK ERROR');
           tracker.pendingResults['${callbackKey}'] =
             { requestId: nextId, __fetchError__: 'Network error' };
         };
         xhr.send(bodyStr);
       })
       .catch(function(err) {
+        console.error('[requestIdTracker:page] SHA-1 or XHR setup failed:', err.message);
         tracker.pendingResults['${callbackKey}'] =
           { __error__: 'SHA-1 failed: ' + err.message };
       });
@@ -164,15 +188,18 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
   })()`;
 
   // Kick off the async XHR in the page context (eval returns synchronously)
-  await evalInPage(script);
+  const evalResult = await evalInPage(script);
+  console.log('[requestIdTracker] eval kickoff result:', evalResult);
 
   // Poll for the result stored by the page-context callback
   const POLL_INTERVAL = 100;
   const TIMEOUT = 15000;
   const startTime = Date.now();
+  let pollCount = 0;
 
   while (Date.now() - startTime < TIMEOUT) {
     await new Promise((res) => setTimeout(res, POLL_INTERVAL));
+    pollCount++;
 
     const result = await evalInPage(
       `(function() {
@@ -183,17 +210,27 @@ export async function sendJsonRequestAtomic(payloadTemplate) {
       })()`,
     );
 
+    if (pollCount % 10 === 0) {
+      console.log('[requestIdTracker] Still polling... attempt', pollCount, 'elapsed:', Date.now() - startTime, 'ms');
+    }
+
     if (result) {
+      console.log('[requestIdTracker] Got result after', pollCount, 'polls,', Date.now() - startTime, 'ms');
+      console.log('[requestIdTracker] Result keys:', Object.keys(result));
       if (result.__error__) {
+        console.error('[requestIdTracker] ERROR:', result.__error__);
         throw new Error(`[requestIdTracker] ${result.__error__}`);
       }
       if (result.__fetchError__) {
+        console.error('[requestIdTracker] FETCH ERROR:', result.__fetchError__);
         throw new Error(`[requestIdTracker] HTTP error: ${result.__fetchError__}`);
       }
+      console.log('[requestIdTracker] SUCCESS — requestId:', result.requestId, 'response is array:', Array.isArray(result.response));
       return result;
     }
   }
 
+  console.error('[requestIdTracker] TIMEOUT after', pollCount, 'polls');
   throw new Error('[requestIdTracker] Request timed out after 15s');
 }
 
