@@ -683,6 +683,22 @@ function handleRequestFinished(request) {
         }
       }
       gameRequestHeaders = capturedHeaders;
+
+      // Track the highest requestId from the outgoing request body so
+      // NeighborGBService always increments from the true latest value.
+      try {
+        const postBody = request.request.postData?.text;
+        if (postBody) {
+          const outgoing = JSON.parse(postBody);
+          if (Array.isArray(outgoing)) {
+            for (const req of outgoing) {
+              if (req?.requestId && req.requestId > gameRequestId) {
+                gameRequestId = req.requestId;
+              }
+            }
+          }
+        }
+      } catch (e) { /* non-JSON postData, ignore */ }
     }
     // console.debug(request.request.headers);
     contentType = request.request.headers.find(

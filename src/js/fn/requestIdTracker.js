@@ -36,33 +36,32 @@ function evalInPage(script) {
  *
  * Returns { requestId: number, response: any }.
  */
-export async function sendJsonRequestAtomic(payloadTemplate, { gameUrl, clientId, requestId: currentMaxId } = {}) {
+export async function sendJsonRequestAtomic(payloadTemplate, { gameUrl, clientId, requestId } = {}) {
   if (!gameUrl) {
     throw new Error('[requestIdTracker] No game URL provided — has the game loaded?');
   }
 
   const payloadJson = JSON.stringify(payloadTemplate);
   const callbackKey = `_foeReq_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  const nextId = (currentMaxId || 0) + 1;
   const safeGameUrl = gameUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const safeClientId = (clientId || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   console.log('[requestIdTracker] sendJsonRequestAtomic — callbackKey:', callbackKey);
   console.log('[requestIdTracker] gameUrl:', gameUrl.substring(0, 80) + '...');
-  console.log('[requestIdTracker] nextRequestId:', nextId);
+  console.log('[requestIdTracker] requestId:', requestId);
 
   const script = `(function() {
     if (!window.__foeInfoPending) window.__foeInfoPending = {};
 
     var payload = ${payloadJson};
-    payload[0].requestId = ${nextId};
+    payload[0].requestId = ${requestId};
 
     var bodyStr = JSON.stringify(payload);
     var gameUrl = '${safeGameUrl}';
     var clientId = '${safeClientId}' ||
       'version=1.332; requiredVersion=1.332; platform=bro; platformType=html5; platformVersion=web';
 
-    console.log('[requestIdTracker:page] Claiming requestId:', ${nextId});
+    console.log('[requestIdTracker:page] Claiming requestId:', ${requestId});
     console.log('[requestIdTracker:page] POST URL:', gameUrl.substring(0, 80));
     console.log('[requestIdTracker:page] Body preview:', bodyStr.substring(0, 200));
 
@@ -89,22 +88,22 @@ export async function sendJsonRequestAtomic(payloadTemplate, { gameUrl, clientId
             console.log('[requestIdTracker:page] Response preview:', xhr.responseText.substring(0, 300));
             try {
               window.__foeInfoPending['${callbackKey}'] =
-                { requestId: ${nextId}, response: JSON.parse(xhr.responseText) };
+                { requestId: ${requestId}, response: JSON.parse(xhr.responseText) };
             } catch(e) {
               console.error('[requestIdTracker:page] JSON parse failed:', e.message);
               window.__foeInfoPending['${callbackKey}'] =
-                { requestId: ${nextId}, __fetchError__: 'Invalid JSON: ' + e.message };
+                { requestId: ${requestId}, __fetchError__: 'Invalid JSON: ' + e.message };
             }
           } else {
             console.error('[requestIdTracker:page] XHR FAILED:', xhr.status, xhr.statusText);
             window.__foeInfoPending['${callbackKey}'] =
-              { requestId: ${nextId}, __fetchError__: xhr.status + ' ' + xhr.statusText };
+              { requestId: ${requestId}, __fetchError__: xhr.status + ' ' + xhr.statusText };
           }
         };
         xhr.onerror = function() {
           console.error('[requestIdTracker:page] XHR NETWORK ERROR');
           window.__foeInfoPending['${callbackKey}'] =
-            { requestId: ${nextId}, __fetchError__: 'Network error' };
+            { requestId: ${requestId}, __fetchError__: 'Network error' };
         };
         xhr.send(bodyStr);
       })

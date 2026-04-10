@@ -42,9 +42,17 @@ import { sendJsonRequestAtomic } from '../fn/requestIdTracker.js';
 // responses through the normal game handler paths.
 export const neighborGBRequestIds = new Set();
 
-// POSTs a game API payload with automatic retry. sendJsonRequestAtomic handles
-// requestId assignment and signature computation atomically inside the page
-// context, so the game's periodic timer cannot steal the same ID.
+// Local requestId counter — always the highest ID we've used or seen.
+// Starts at 0; getNextRequestId() picks max(this, gameRequestId) + 1.
+let lastUsedRequestId = 0;
+
+function getNextRequestId() {
+  const base = Math.max(lastUsedRequestId, gameRequestId);
+  lastUsedRequestId = base + 1;
+  return lastUsedRequestId;
+}
+
+// POSTs a game API payload with automatic retry.
 async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
   console.log('[NeighborGB] postGameRequest called, method:', payloadTemplate[0]?.requestMethod);
@@ -60,11 +68,12 @@ async function postGameRequest(payloadTemplate) {
       await new Promise((res) => setTimeout(res, 300 * attempt));
     }
 
+    const nextId = getNextRequestId();
     try {
       const result = await sendJsonRequestAtomic(payloadTemplate, {
         gameUrl: gameJsonUrl,
         clientId: gameRequestHeaders['client-identification'] || '',
-        requestId: gameRequestId,
+        requestId: nextId,
       });
       console.log('[NeighborGB] sendJsonRequestAtomic returned, requestId:', result?.requestId, 'response type:', typeof result?.response, 'is array:', Array.isArray(result?.response));
 
