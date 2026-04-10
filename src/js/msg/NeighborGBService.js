@@ -23,19 +23,14 @@
  * getOtherPlayerOverview + getConstruction for every neighbor, and surfaces
  * profitable contributions (>20% profit margin based on your Arc bonus).
  *
- * Requests are sent via sendJsonRequestAtomic() from requestIdTracker.js, which
- * claims the next requestId and fires the XHR in a single inspectedWindow.eval()
- * call — eliminating the async gap that allowed the game's periodic timer to
- * steal the same requestId.
+ * Requests are sent through the game's authenticated WebSocket via wsProxy.js,
+ * which auto-manages sequential requestIds. No separate XHR or MD5 signatures.
  */
 
 import {
   overview,
   gbScanDiv,
   donationPercent,
-  gameJsonUrl,
-  gameRequestHeaders,
-  gameRequestId,
   PlayerID,
 } from '../index.js';
 import { hoodlist } from './OtherPlayerService.js';
@@ -43,55 +38,30 @@ import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
 import {
   sendJsonRequestAtomic,
-  isSecretDiscovered,
-  tryDiscoverSecret,
+  isWsReady,
 } from '../fn/requestIdTracker.js';
 import { makeSortable } from '../fn/sortableTable.js';
 
 // ---------------------------------------------------------------------------
-// Transport — atomic requestId claim + XHR via the page-level tracker
+// Transport — sends requests through the game's WebSocket via wsProxy.js
 // ---------------------------------------------------------------------------
 
 // Tracks requestIds we sent so index.js can skip double-processing our own
 // responses through the normal game handler paths.
 export const neighborGBRequestIds = new Set();
 
-// Scanner requestIds live in a separate range (1,000,000+) so they never
-// collide with the game client's own counter (which increments from ~30-500).
-// The server accepts non-sequential IDs; it only rejects duplicates.
-// GBG monitor uses 2,000,000+ to avoid collisions with scanner IDs.
-const SCANNER_ID_BASE = 1_000_000;
-const GBG_MONITOR_ID_BASE = 2_000_000;
-let lastUsedRequestId = SCANNER_ID_BASE;
-let lastUsedGBGRequestId = GBG_MONITOR_ID_BASE;
-
-function getNextRequestId() {
-  lastUsedRequestId += 1;
-  return lastUsedRequestId;
-}
-
-function getNextGBGRequestId() {
-  lastUsedGBGRequestId += 1;
-  return lastUsedGBGRequestId;
-}
-
-// POSTs a game API payload with automatic retry.
+// POSTs a game API payload via the game's WebSocket with automatic retry.
 export async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
   console.log(
     '[NeighborGB] postGameRequest called, method:',
     payloadTemplate[0]?.requestMethod,
   );
-  console.log(
-    '[NeighborGB] gameJsonUrl available:',
-    !!gameJsonUrl,
-    'gameRequestId:',
-    gameRequestId,
-  );
 
-  if (!gameJsonUrl) {
+  const ready = await isWsReady();
+  if (!ready) {
     throw new Error(
-      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
+      'Game WebSocket not connected — play the game for a moment so the WebSocket is captured.',
     );
   }
 
@@ -101,91 +71,42 @@ export async function postGameRequest(payloadTemplate) {
       await new Promise((res) => setTimeout(res, 300 * attempt));
     }
 
-    const nextId = getNextRequestId();
-    // Register BEFORE sending so the network listener in index.js always
-    // sees the ID and skips double-processing the scanner's responses.
-    neighborGBRequestIds.add(nextId);
     try {
-      const result = await sendJsonRequestAtomic(payloadTemplate, {
-        gameUrl: gameJsonUrl,
-        clientId: gameRequestHeaders['client-identification'] || '',
-        requestId: nextId,
-      });
+      const result = await sendJsonRequestAtomic(payloadTemplate);
+      const requestId = result?.requestId;
+      if (requestId) {
+        neighborGBRequestIds.add(requestId);
+        setTimeout(() => neighborGBRequestIds.delete(requestId), 30000);
+      }
       console.log(
         '[NeighborGB] sendJsonRequestAtomic returned, requestId:',
-        result?.requestId,
+        requestId,
         'response type:',
         typeof result?.response,
         'is array:',
         Array.isArray(result?.response),
       );
 
-      // Clean up after a generous delay so the network listener has time
-      // to process the response through request.getContent().then(…).
-      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
-
       if (
         Array.isArray(result.response) &&
-        result.response[0]?.__class__ === 'Error'
+        result.response.some((r) => r?.__class__ === 'Error')
       ) {
+        const errItem = result.response.find((r) => r?.__class__ === 'Error');
         console.error(
           '[NeighborGB] Game server error:',
-          result.response[0].message,
+          errItem?.message,
         );
-        throw new Error(result.response[0].message ?? 'Game server error');
+        throw new Error(errItem?.message ?? 'Game server error');
       }
 
       return result.response;
     } catch (err) {
-      // Clean up the registered ID on failure so it doesn't linger
-      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
       console.warn(
         '[NeighborGB] Request failed (attempt',
         attempt + 1,
         '):',
         err.message,
       );
-      if (attempt === MAX_RETRIES) throw err;
-    }
-  }
-}
-
-// POSTs a GBG monitor API payload using the 2M+ request ID range.
-export async function postGBGRequest(payloadTemplate) {
-  const MAX_RETRIES = 3;
-
-  if (!gameJsonUrl) {
-    throw new Error(
-      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
-    );
-  }
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await new Promise((res) => setTimeout(res, 300 * attempt));
-    }
-
-    const nextId = getNextGBGRequestId();
-    neighborGBRequestIds.add(nextId);
-    try {
-      const result = await sendJsonRequestAtomic(payloadTemplate, {
-        gameUrl: gameJsonUrl,
-        clientId: gameRequestHeaders['client-identification'] || '',
-        requestId: nextId,
-      });
-
-      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
-
-      if (
-        Array.isArray(result.response) &&
-        result.response[0]?.__class__ === 'Error'
-      ) {
-        throw new Error(result.response[0].message ?? 'Game server error');
-      }
-
-      return result.response;
-    } catch (err) {
-      setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
       if (attempt === MAX_RETRIES) throw err;
     }
   }
@@ -798,9 +719,6 @@ export function initGBScanUI() {
   gbScanDiv.appendChild(btn);
   gbScanDiv.appendChild(statusDiv);
 
-  // Kick off secret discovery in the background so it's ready when needed
-  tryDiscoverSecret().catch(() => {});
-
   // Periodic readiness check — updates every 2 s until all prerequisites are met
   const checkInterval = setInterval(() => {
     const ready = updateScanReadiness(btn, statusDiv);
@@ -819,15 +737,9 @@ function updateScanReadiness(btn, statusDiv) {
         hoodlist.length > 0 ? `${hoodlist.length} players` : 'open social bar',
     },
     {
-      label: 'Game URL',
-      ok: !!gameJsonUrl,
-      detail: gameJsonUrl ? 'captured' : 'waiting for game traffic',
-    },
-    {
-      label: 'Request ID',
-      ok: gameRequestId > 0,
-      detail:
-        gameRequestId > 0 ? `#${gameRequestId}` : 'waiting for game traffic',
+      label: 'WebSocket',
+      ok: false, // updated async below
+      detail: 'checking…',
     },
     {
       label: 'Player ID',
@@ -839,16 +751,20 @@ function updateScanReadiness(btn, statusDiv) {
       ok: City.ArcBonus != null,
       detail: City.ArcBonus != null ? `${City.ArcBonus}%` : 'defaults to 90%',
     },
-    {
-      label: 'Secret key',
-      ok: isSecretDiscovered(),
-      detail:
-        isSecretDiscovered() ? 'discovered' : 'auto-discovers on first scan',
-    },
   ];
 
-  // Core prerequisites that must be met to enable the button
-  const coreReady = checks[0].ok && checks[1].ok && checks[2].ok;
+  // Check WebSocket asynchronously
+  isWsReady().then((ready) => {
+    checks[1].ok = ready;
+    checks[1].detail = ready ? 'connected' : 'waiting for game WebSocket';
+    renderScanReadiness(btn, statusDiv, checks);
+  });
+
+  return false; // always async — renderScanReadiness handles enabling
+}
+
+function renderScanReadiness(btn, statusDiv, checks) {
+  const coreReady = checks[0].ok && checks[1].ok;
 
   btn.disabled = !coreReady;
   btn.className =
@@ -859,7 +775,7 @@ function updateScanReadiness(btn, statusDiv) {
   const lines = checks.map((c) => {
     const icon =
       c.ok ? '✅'
-      : c.label === 'Arc bonus' || c.label === 'Secret key' ? '⏳'
+      : c.label === 'Arc bonus' ? '⏳'
       : '❌';
     return `${icon} ${c.label}: ${c.detail}`;
   });
