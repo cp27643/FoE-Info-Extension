@@ -68,7 +68,10 @@ function getParticipantName(participantId) {
 
 function getProvinceName(provinceId) {
   const def = provinceDefs.find((d) => d.id === provinceId);
-  return def?.name ?? `Province ${provinceId}`;
+  if (!def?.name) return `P${provinceId}`;
+  // Short format: first letter + number, e.g. "A1 Archipelago" → "A1"
+  const parts = def.name.split(' ');
+  return parts[0];
 }
 
 function randomPollDelay() {
