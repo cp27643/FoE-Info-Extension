@@ -217,6 +217,17 @@ function computeSignature(userKey, secret, body) {
   return md5(userKey + secret + body).substring(0, 10);
 }
 
+/** Returns true if the VERSION_SECRET has already been discovered and cached. */
+export function isSecretDiscovered() {
+  return cachedSecret != null;
+}
+
+/** Kicks off secret discovery (no-op if already cached). Returns a Promise<boolean>. */
+export async function tryDiscoverSecret() {
+  const s = await discoverSecret();
+  return s != null;
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**

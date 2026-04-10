@@ -33,7 +33,7 @@ import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, 
 import { hoodlist } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
-import { sendJsonRequestAtomic } from '../fn/requestIdTracker.js';
+import { sendJsonRequestAtomic, isSecretDiscovered, tryDiscoverSecret } from '../fn/requestIdTracker.js';
 
 // ---------------------------------------------------------------------------
 // Transport — atomic requestId claim + XHR via the page-level tracker
@@ -573,13 +573,60 @@ export async function scanAllNeighborGBs() {
   );
 }
 
-// Renders the "Scan Hood GBs" button into gbScanDiv.
+// Renders the "Scan Hood GBs" button and a readiness dashboard into gbScanDiv.
 // Called once from index.js after the div is in the DOM.
 export function initGBScanUI() {
   const btn = document.createElement('button');
   btn.id = 'gbScanBtn';
   btn.className = 'btn btn-sm btn-outline-warning mt-1 mb-1';
   btn.textContent = 'Scan Hood GBs';
+  btn.disabled = true;
   btn.addEventListener('click', scanAllNeighborGBs);
+
+  const statusDiv = document.createElement('div');
+  statusDiv.id = 'gbScanStatus';
+  statusDiv.className = 'small text-muted mb-1';
+  statusDiv.style.lineHeight = '1.4';
+
   gbScanDiv.appendChild(btn);
+  gbScanDiv.appendChild(statusDiv);
+
+  // Kick off secret discovery in the background so it's ready when needed
+  tryDiscoverSecret().catch(() => {});
+
+  // Periodic readiness check — updates every 2 s until all prerequisites are met
+  const checkInterval = setInterval(() => {
+    const ready = updateScanReadiness(btn, statusDiv);
+    if (ready) clearInterval(checkInterval);
+  }, 2000);
+  // Run once immediately
+  updateScanReadiness(btn, statusDiv);
+}
+
+function updateScanReadiness(btn, statusDiv) {
+  const checks = [
+    { label: 'Hood list', ok: hoodlist.length > 0, detail: hoodlist.length > 0 ? `${hoodlist.length} players` : 'open social bar' },
+    { label: 'Game URL', ok: !!gameJsonUrl, detail: gameJsonUrl ? 'captured' : 'waiting for game traffic' },
+    { label: 'Request ID', ok: gameRequestId > 0, detail: gameRequestId > 0 ? `#${gameRequestId}` : 'waiting for game traffic' },
+    { label: 'Player ID', ok: !!PlayerID, detail: PlayerID ? `${PlayerID}` : 'waiting for login data' },
+    { label: 'Arc bonus', ok: City.ArcBonus != null, detail: City.ArcBonus != null ? `${City.ArcBonus}%` : 'defaults to 90%' },
+    { label: 'Secret key', ok: isSecretDiscovered(), detail: isSecretDiscovered() ? 'discovered' : 'auto-discovers on first scan' },
+  ];
+
+  // Core prerequisites that must be met to enable the button
+  const coreReady = checks[0].ok && checks[1].ok && checks[2].ok;
+
+  btn.disabled = !coreReady;
+  btn.className = coreReady
+    ? 'btn btn-sm btn-warning mt-1 mb-1'
+    : 'btn btn-sm btn-outline-secondary mt-1 mb-1';
+
+  const lines = checks.map(c => {
+    const icon = c.ok ? '✅' : (c.label === 'Arc bonus' || c.label === 'Secret key' ? '⏳' : '❌');
+    return `${icon} ${c.label}: ${c.detail}`;
+  });
+  statusDiv.innerHTML = lines.join('<br>');
+
+  const allReady = checks.every(c => c.ok);
+  return allReady;
 }
