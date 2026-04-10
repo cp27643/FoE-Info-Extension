@@ -458,7 +458,7 @@ function renderMonitorUI() {
   if (allAttacks.length) {
     html += `<p class="mb-1"><strong>All Active Attacks:</strong> <small class="text-muted">(<span class="text-danger">red</span> = our province)</small></p>`;
     html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorAttacksTable">
-      <thead><tr><th>Province</th><th>Defender</th><th>Attacker</th><th>Progress</th><th>%</th></tr></thead><tbody>`;
+      <thead><tr><th>Province</th><th>Defender</th><th>Attacker</th><th>Progress</th><th>%</th><th>Attrition</th></tr></thead><tbody>`;
     for (const p of allAttacks) {
       for (const cp of p.conquestProgress) {
         const pct = Math.round((cp.progress / cp.maxProgress) * 100);
@@ -470,6 +470,7 @@ function renderMonitorUI() {
           <td>${getParticipantName(cp.participantId)}</td>
           <td>${cp.progress}/${cp.maxProgress}</td>
           <td>${pct}%</td>
+          <td>${p.gainAttritionChance ?? '—'}%</td>
         </tr>`;
       }
     }
