@@ -51,7 +51,6 @@ let lastTargetText = ''; // track target generator output for change detection
 let activeFilter = null; // null = show all, or 'ours'|'attack'|'unlocked'
 
 // Configurable thresholds
-const LOCK_WARN_MINUTES = 5;
 const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min debounce per event
 
 // ---------------------------------------------------------------------------
@@ -198,19 +197,6 @@ function diffProvinces(oldMap, newMap) {
       }
     }
 
-    // --- Lock expiring soon ---
-    if (weOwn && newProv.lockedUntil) {
-      const secsLeft = newProv.lockedUntil - now;
-      if (secsLeft > 0 && secsLeft <= LOCK_WARN_MINUTES * 60) {
-        alerts.push({
-          type: 'lock_expiring',
-          key: `lock-${newProv.id}`,
-          emoji: '🟡',
-          message: `🟡 **${provName} lock expires in ${formatCountdown(secsLeft)}**`,
-        });
-      }
-    }
-
     // --- Province just unlocked ---
     if (oldProv?.lockedUntil && !newProv.lockedUntil) {
       alerts.push({
@@ -336,24 +322,57 @@ function checkTargetChange() {
   const el = document.getElementById('targetGenText');
   if (!el) return;
 
-  const currentText = el.textContent.trim();
-  if (!currentText) return;
+  // Extract only stable row data (province names) — ignore timer columns
+  const rows = el.querySelectorAll('tr');
+  const stableKeys = [];
+  const rowTexts = [];
+  for (const row of rows) {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 3) continue;
+    // columns: Battle(0), Province(1), Attrition(2), Opens In(3), SC(4), Built In(5)
+    // Only use Province as the stable key — the rest can change with timers or SC updates
+    const province = cells[1]?.textContent?.trim() ?? '';
+    if (province) {
+      stableKeys.push(province);
+      // Capture full row for Discord message
+      const battle = cells[0]?.textContent?.trim() ?? '';
+      const attrition = cells[2]?.textContent?.trim() ?? '';
+      rowTexts.push(`${battle} | ${province} | ${attrition}`);
+    }
+  }
+
+  const currentSignature = stableKeys.sort().join('|');
+  if (!currentSignature) return;
 
   // Skip first capture (baseline)
   if (!lastTargetText) {
-    lastTargetText = currentText;
+    lastTargetText = currentSignature;
     return;
   }
 
-  if (currentText !== lastTargetText) {
-    lastTargetText = currentText;
-    if (shouldAlert('target-change')) {
-      // Format for Discord: replace <br> with newlines
-      const formatted = el.innerHTML
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .trim();
-      sendDiscordAlert(`📋 **GBG Targets Updated:**\n${formatted}`);
+  if (currentSignature !== lastTargetText) {
+    // Determine what's new
+    const oldSet = new Set(lastTargetText.split('|'));
+    const newTargets = stableKeys.filter((k) => !oldSet.has(k));
+    const removedTargets = [...oldSet].filter(
+      (k) => k && !stableKeys.includes(k),
+    );
+    lastTargetText = currentSignature;
+
+    if (
+      (newTargets.length > 0 || removedTargets.length > 0) &&
+      shouldAlert('target-change')
+    ) {
+      let msg = '📋 **GBG Targets Changed:**\n';
+      if (newTargets.length > 0) {
+        msg += `🆕 Added: ${newTargets.join(', ')}\n`;
+      }
+      if (removedTargets.length > 0) {
+        msg += `❌ Removed: ${removedTargets.join(', ')}\n`;
+      }
+      msg += `\n**Current targets (${rowTexts.length}):**\n`;
+      msg += rowTexts.join('\n');
+      sendDiscordAlert(msg);
     }
   }
 }
