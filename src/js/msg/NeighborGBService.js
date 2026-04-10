@@ -46,6 +46,7 @@ import {
   isSecretDiscovered,
   tryDiscoverSecret,
 } from '../fn/requestIdTracker.js';
+import { makeSortable } from '../fn/sortableTable.js';
 
 // ---------------------------------------------------------------------------
 // Transport — atomic requestId claim + XHR via the page-level tracker
@@ -600,6 +601,8 @@ function showScanResults(profitable, scanned, total) {
   const btn = gbScanDiv.querySelector('#gbScanBtn');
   gbScanDiv.innerHTML = html;
   if (btn) gbScanDiv.prepend(btn);
+  const tbl = gbScanDiv.querySelector('table');
+  if (tbl) makeSortable(tbl);
 }
 
 // ---------------------------------------------------------------------------

@@ -36,6 +36,7 @@ import {
   isSecretDiscovered,
   tryDiscoverSecret,
 } from '../fn/requestIdTracker.js';
+import { makeSortable } from '../fn/sortableTable.js';
 import {
   getNeighborOverview,
   extractGBRows,
@@ -116,6 +117,8 @@ function showFriendsScanResults(profitable, scanned, total) {
   const btn = friendsScanDiv.querySelector('#friendsScanBtn');
   friendsScanDiv.innerHTML = html;
   if (btn) friendsScanDiv.prepend(btn);
+  const tbl = friendsScanDiv.querySelector('table');
+  if (tbl) makeSortable(tbl);
 }
 
 // ---------------------------------------------------------------------------
