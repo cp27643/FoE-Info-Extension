@@ -550,6 +550,7 @@ function checkProvinces() {
         if (campsNotReady > 0)
           campsNotReady = Math.min(80 - campsReady, campsNotReady);
         var provLabel = name[0] + name[1];
+        if (targetText) provLabel += ' ' + targetText;
         var battleType =
           province.isAttackBattleType ?
             '<span class="text-danger">⚔️ Attack</span>'
@@ -557,7 +558,7 @@ function checkProvinces() {
         var baseAttrition = province.gainAttritionChance ?? 0;
         var effectiveAttrition = Math.max(baseAttrition - campsReady, 0);
         var campsText = '';
-        if (showOptions.GBGshowSC && (campsReady || campsNotReady)) {
+        if (campsReady || campsNotReady) {
           if (campsReady && !campsNotReady)
             campsText = '(' + (100 - campsReady) + '%)';
           else if (campsNotReady && !campsReady)
@@ -571,22 +572,30 @@ function checkProvinces() {
               '% UC]';
           else campsText = '(! SC)';
         }
-        var opensAt = '';
-        if (province.lockedUntil && showOptions.GBGprovinceTime) {
-          var time = new Date(province.lockedUntil * 1000);
-          opensAt = timeGBG(time).replace('@ ', '');
+        var opensIn = '';
+        if (province.lockedUntil) {
+          var secsLeft = province.lockedUntil - Math.floor(Date.now() / 1000);
+          if (secsLeft <= 0) {
+            opensIn = '🔓 Now';
+          } else {
+            var h = Math.floor(secsLeft / 3600);
+            var m = Math.floor((secsLeft % 3600) / 60);
+            opensIn = h > 0 ? `${h}h ${m}m` : `${m}m`;
+          }
         } else {
-          opensAt = '🔓 Now';
+          opensIn = '🔓 Now';
         }
-        if (targetText) provLabel += ' ' + targetText;
         var row = `<tr>
-          <td>${provLabel}</td>
           <td>${battleType}</td>
+          <td>${provLabel}</td>
           <td>${effectiveAttrition}%</td>
-          <td>${opensAt}</td>
-          ${showOptions.GBGshowSC ? `<td>${campsText}</td>` : ''}
+          <td>${opensIn}</td>
+          <td>${campsText}</td>
         </tr>`;
-        if (province.lockedUntil && showOptions.GBGprovinceTime) {
+        if (
+          province.lockedUntil &&
+          province.lockedUntil > Math.floor(Date.now() / 1000)
+        ) {
           textProvinceLocked += row;
         } else {
           textProvinceUnlocked += row;
@@ -607,11 +616,11 @@ function checkProvinces() {
             ${collapse.collapseTargetGen == false ? 'show' : ''}">
             <table class="table table-sm table-borderless mb-0" id="targetGenTable">
               <thead><tr>
-                <th>Province</th>
                 <th>Battle</th>
+                <th>Province</th>
                 <th>Attrition</th>
-                <th>Opens At</th>
-                ${showOptions.GBGshowSC ? '<th>SC</th>' : ''}
+                <th>Opens In</th>
+                <th>SC</th>
               </tr></thead>
               <tbody id="targetGenText">` +
       textProvinceUnlocked +
