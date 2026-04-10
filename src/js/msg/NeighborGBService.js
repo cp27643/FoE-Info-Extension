@@ -261,14 +261,22 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     if (lockProfit <= 0) continue;
 
     const holder = rankings?.find((p) => p.rank === rank);
+    const totalInvestment = myFP + marginalCost;
+    const profitPct = totalInvestment > 0
+      ? Math.round((lockProfit / totalInvestment) * 100)
+      : 0;
+
     spots.push({
       rank,
       currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
       currentFP,
       lockCost: marginalCost,
+      myFP,
+      totalInvestment,
       rewardFP,
       baseRewardFP: rewards[index],
       lockProfit,
+      profitPct,
     });
   }
 
@@ -415,7 +423,7 @@ function showPassiveResults(results) {
     for (const spot of r.profitableSpots) {
       html +=
         `<div class="ms-2 text-success">🔒 P${spot.rank} ${spot.currentHolder}: ` +
-        `${spot.lockCost}FP → ${spot.rewardFP}FP (${spot.lockProfit}FP profit)</div>`;
+        `${spot.lockCost}FP → ${spot.rewardFP}FP (${spot.lockProfit}FP profit, ${spot.profitPct}% ROI)</div>`;
     }
     html += `</div>`;
   }
@@ -451,7 +459,7 @@ function showScanResults(profitable, scanned, total) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
-        <th>Lock Cost</th><th>Reward</th><th>Profit</th>
+        <th>Lock Cost</th><th>Reward</th><th>Profit</th><th>ROI</th>
       </tr></thead><tbody>`;
 
     for (const entry of allSpots) {
@@ -468,6 +476,7 @@ function showScanResults(profitable, scanned, total) {
         <td>${spot.lockCost}</td>
         <td>${spot.rewardFP}</td>
         <td class="text-success">${spot.lockProfit}</td>
+        <td>${spot.profitPct}%</td>
       </tr>`;
     }
     html += `</tbody></table>`;
