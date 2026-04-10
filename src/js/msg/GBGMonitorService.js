@@ -340,23 +340,21 @@ function renderMonitorUI() {
   if (!monitorDiv) return;
   const now = nowEpoch();
 
-  // Separate our provinces into categories
-  const ourProvinces = currentMap.filter(
-    (p) => p.ownerId === ourParticipantId && !p.isSpawnSpot,
-  );
-  const underAttack = ourProvinces.filter(
-    (p) => p.conquestProgress?.length > 0,
-  );
+  // Separate our provinces into categories (include spawn spot in count)
+  const ourProvinces = currentMap.filter((p) => p.ownerId === ourParticipantId);
+  const ourNonSpawn = ourProvinces.filter((p) => !p.isSpawnSpot);
+  const underAttack = ourNonSpawn.filter((p) => p.conquestProgress?.length > 0);
   const allAttacks = currentMap.filter((p) => p.conquestProgress?.length > 0);
 
   let html = `<div class="alert alert-info alert-dismissible show" role="alert">
     ${element.close()}
     <p><strong>GBG Monitor</strong>
-    <small class="text-muted ms-2">${isMonitoring ? '🟢 Active' : '🔴 Stopped'} | ${ourProvinces.length} provinces held</small></p>`;
+    <small class="text-muted ms-2">${isMonitoring ? '🟢 Active' : '🔴 Stopped'} | ${ourProvinces.length} provinces held</small></p>
+    <p class="mb-1 small text-muted">Legend: <span class="badge bg-danger text-white">Under Attack</span> <span class="badge bg-warning text-dark">Unlocked</span></p>`;
 
   // Under attack section
   if (underAttack.length) {
-    html += `<p class="mb-1"><strong class="text-danger">⚠ Our Provinces Under Attack:</strong></p>`;
+    html += `<p class="mb-1"><strong class="text-danger">⚠ Our Provinces Under Attack (${underAttack.length}):</strong></p>`;
     html += `<table class="table table-sm table-borderless mb-2">
       <thead><tr><th>Province</th><th>Attacker</th><th>Progress</th><th>%</th></tr></thead><tbody>`;
     for (const p of underAttack) {
@@ -377,12 +375,12 @@ function renderMonitorUI() {
     html += `</tbody></table>`;
   }
 
-  // Our provinces with lock timers
-  if (ourProvinces.length) {
+  // Our provinces with lock timers (exclude spawn)
+  if (ourNonSpawn.length) {
     html += `<p class="mb-1"><strong>Our Provinces:</strong></p>`;
     html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorOurTable">
       <thead><tr><th>Province</th><th>VP</th><th>VP Bonus</th><th>Lock</th><th>Attrition %</th></tr></thead><tbody>`;
-    const sorted = [...ourProvinces].sort(
+    const sorted = [...ourNonSpawn].sort(
       (a, b) => (a.lockedUntil ?? 0) - (b.lockedUntil ?? 0),
     );
     for (const p of sorted) {
@@ -410,7 +408,7 @@ function renderMonitorUI() {
 
   // All active attacks on the grid
   if (allAttacks.length) {
-    html += `<p class="mb-1"><strong>All Active Attacks:</strong></p>`;
+    html += `<p class="mb-1"><strong>All Active Attacks:</strong> <small class="text-muted">(<span class="text-danger">red</span> = our province)</small></p>`;
     html += `<table class="table table-sm table-borderless mb-2" id="gbgMonitorAttacksTable">
       <thead><tr><th>Province</th><th>Defender</th><th>Attacker</th><th>Progress</th><th>%</th></tr></thead><tbody>`;
     for (const p of allAttacks) {
