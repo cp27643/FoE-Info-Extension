@@ -29,11 +29,23 @@
  * steal the same requestId.
  */
 
-import { overview, gbScanDiv, donationPercent, gameJsonUrl, gameRequestHeaders, gameRequestId, PlayerID } from '../index.js';
+import {
+  overview,
+  gbScanDiv,
+  donationPercent,
+  gameJsonUrl,
+  gameRequestHeaders,
+  gameRequestId,
+  PlayerID,
+} from '../index.js';
 import { hoodlist } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
-import { sendJsonRequestAtomic, isSecretDiscovered, tryDiscoverSecret } from '../fn/requestIdTracker.js';
+import {
+  sendJsonRequestAtomic,
+  isSecretDiscovered,
+  tryDiscoverSecret,
+} from '../fn/requestIdTracker.js';
 
 // ---------------------------------------------------------------------------
 // Transport — atomic requestId claim + XHR via the page-level tracker
@@ -55,13 +67,23 @@ function getNextRequestId() {
 }
 
 // POSTs a game API payload with automatic retry.
-async function postGameRequest(payloadTemplate) {
+export async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
-  console.log('[NeighborGB] postGameRequest called, method:', payloadTemplate[0]?.requestMethod);
-  console.log('[NeighborGB] gameJsonUrl available:', !!gameJsonUrl, 'gameRequestId:', gameRequestId);
+  console.log(
+    '[NeighborGB] postGameRequest called, method:',
+    payloadTemplate[0]?.requestMethod,
+  );
+  console.log(
+    '[NeighborGB] gameJsonUrl available:',
+    !!gameJsonUrl,
+    'gameRequestId:',
+    gameRequestId,
+  );
 
   if (!gameJsonUrl) {
-    throw new Error('Game URL not captured yet — play the game for a moment so network traffic is intercepted.');
+    throw new Error(
+      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
+    );
   }
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -80,7 +102,14 @@ async function postGameRequest(payloadTemplate) {
         clientId: gameRequestHeaders['client-identification'] || '',
         requestId: nextId,
       });
-      console.log('[NeighborGB] sendJsonRequestAtomic returned, requestId:', result?.requestId, 'response type:', typeof result?.response, 'is array:', Array.isArray(result?.response));
+      console.log(
+        '[NeighborGB] sendJsonRequestAtomic returned, requestId:',
+        result?.requestId,
+        'response type:',
+        typeof result?.response,
+        'is array:',
+        Array.isArray(result?.response),
+      );
 
       // Clean up after a generous delay so the network listener has time
       // to process the response through request.getContent().then(…).
@@ -90,7 +119,10 @@ async function postGameRequest(payloadTemplate) {
         Array.isArray(result.response) &&
         result.response[0]?.__class__ === 'Error'
       ) {
-        console.error('[NeighborGB] Game server error:', result.response[0].message);
+        console.error(
+          '[NeighborGB] Game server error:',
+          result.response[0].message,
+        );
         throw new Error(result.response[0].message ?? 'Game server error');
       }
 
@@ -98,7 +130,12 @@ async function postGameRequest(payloadTemplate) {
     } catch (err) {
       // Clean up the registered ID on failure so it doesn't linger
       setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
-      console.warn('[NeighborGB] Request failed (attempt', attempt + 1, '):', err.message);
+      console.warn(
+        '[NeighborGB] Request failed (attempt',
+        attempt + 1,
+        '):',
+        err.message,
+      );
       if (attempt === MAX_RETRIES) throw err;
     }
   }
@@ -108,7 +145,7 @@ async function postGameRequest(payloadTemplate) {
 // Game API wrappers
 // ---------------------------------------------------------------------------
 
-async function getNeighborOverview(playerId) {
+export async function getNeighborOverview(playerId) {
   console.log('[NeighborGB] getNeighborOverview for playerId:', playerId);
   return postGameRequest([
     {
@@ -120,8 +157,13 @@ async function getNeighborOverview(playerId) {
   ]);
 }
 
-async function getNeighborConstruction(entityId, playerId) {
-  console.log('[NeighborGB] getNeighborConstruction entityId:', entityId, 'playerId:', playerId);
+export async function getNeighborConstruction(entityId, playerId) {
+  console.log(
+    '[NeighborGB] getNeighborConstruction entityId:',
+    entityId,
+    'playerId:',
+    playerId,
+  );
   return postGameRequest([
     {
       __class__: 'ServerRequest',
@@ -137,11 +179,23 @@ async function getNeighborConstruction(entityId, playerId) {
 // ---------------------------------------------------------------------------
 
 // Extracts GreatBuildingContributionRow objects from a getOtherPlayerOverview response.
-function extractGBRows(response) {
-  console.log('[NeighborGB] extractGBRows — response is array:', Array.isArray(response), 'length:', Array.isArray(response) ? response.length : 'N/A');
+export function extractGBRows(response) {
+  console.log(
+    '[NeighborGB] extractGBRows — response is array:',
+    Array.isArray(response),
+    'length:',
+    Array.isArray(response) ? response.length : 'N/A',
+  );
   if (!Array.isArray(response)) return [];
   for (const item of response) {
-    console.log('[NeighborGB] extractGBRows item — requestClass:', item?.requestClass, 'requestMethod:', item?.requestMethod, 'responseData is array:', Array.isArray(item?.responseData));
+    console.log(
+      '[NeighborGB] extractGBRows item — requestClass:',
+      item?.requestClass,
+      'requestMethod:',
+      item?.requestMethod,
+      'responseData is array:',
+      Array.isArray(item?.responseData),
+    );
     if (
       item?.requestClass === 'GreatBuildingsService' &&
       item?.requestMethod === 'getOtherPlayerOverview' &&
@@ -150,17 +204,23 @@ function extractGBRows(response) {
       const rows = item.responseData.filter(
         (r) => r?.__class__ === 'GreatBuildingContributionRow',
       );
-      console.log('[NeighborGB] extractGBRows found', rows.length, 'GreatBuildingContributionRow(s)');
+      console.log(
+        '[NeighborGB] extractGBRows found',
+        rows.length,
+        'GreatBuildingContributionRow(s)',
+      );
       return rows;
     }
   }
-  console.log('[NeighborGB] extractGBRows — no matching GreatBuildingsService/getOtherPlayerOverview item found');
+  console.log(
+    '[NeighborGB] extractGBRows — no matching GreatBuildingsService/getOtherPlayerOverview item found',
+  );
   return [];
 }
 
 // Extracts the full construction data from a getConstruction response.
 // Returns responseData which contains rankings, state, current_progress, etc.
-function extractConstruction(response) {
+export function extractConstruction(response) {
   if (!Array.isArray(response)) return null;
   for (const item of response) {
     if (
@@ -188,11 +248,13 @@ function extractConstruction(response) {
 //   profit      = reward − lockCost
 //
 // A "snipeCost" (just beat current holder) is also returned for reference.
-function calculateProfitableSpots(rankings, remaining, arcBonus) {
+export function calculateProfitableSpots(rankings, remaining, arcBonus) {
   // Build Top[0..5] array exactly like GreatBuildingsService does.
   // Top[0] through Top[4] = FP at ranks 1-5, Top[5] = rank 6 (first unranked).
   const Top = [0, 0, 0, 0, 0, 0];
   const rewards = [0, 0, 0, 0, 0];
+  const medals = [0, 0, 0, 0, 0];
+  const blueprints = [0, 0, 0, 0, 0];
 
   // Find the user's current rank and FP on this building
   let myRank = 0;
@@ -203,6 +265,8 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
+      medals[rank - 1] = place.reward?.medals ?? 0;
+      blueprints[rank - 1] = place.reward?.blueprints ?? 0;
       if (place.player?.is_self || place.player?.player_id == PlayerID) {
         myRank = rank;
         myFP = place.forge_points ?? 0;
@@ -227,13 +291,12 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     // Skip ranks worse than our current rank (higher number = worse)
     if (myRank > 0 && rank > myRank) continue;
 
-    const isVacant =
-      !rankings?.find(
-        (p) =>
-          p.rank === rank &&
-          p.player?.name &&
-          p.player.name !== 'No contributor yet',
-      );
+    const isVacant = !rankings?.find(
+      (p) =>
+        p.rank === rank &&
+        p.player?.name &&
+        p.player.name !== 'No contributor yet',
+    );
     const currentFP = Top[index];
 
     // Lock cost: same formula as getPlaceValues() in GreatBuildingsService.
@@ -247,7 +310,7 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
     // removes (D - myFP) from remaining, leaving more FP for the threat.
     const lockFromThreat = Math.ceil((maxBelowFP + remainingFP + myFP) / 2);
     // If we already hold this rank, we don't need to beat ourselves
-    const lockToBeat = (myRank === rank) ? 0 : currentFP + 1;
+    const lockToBeat = myRank === rank ? 0 : currentFP + 1;
     const totalLockCost = Math.max(lockFromThreat, lockToBeat);
 
     // Marginal cost: subtract FP we've already contributed
@@ -266,8 +329,9 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
 
     const holder = rankings?.find((p) => p.rank === rank);
     const totalInvestment = myFP + marginalCost;
-    const profitPct = totalInvestment > 0
-      ? Math.round((lockProfit / totalInvestment) * 100)
+    const profitPct =
+      totalInvestment > 0 ?
+        Math.round((lockProfit / totalInvestment) * 100)
       : 0;
 
     spots.push({
@@ -281,6 +345,8 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
       baseRewardFP: rewards[index],
       lockProfit,
       profitPct,
+      rewardMedals: medals[index],
+      rewardBlueprints: blueprints[index],
     });
   }
 
@@ -294,9 +360,14 @@ function calculateProfitableSpots(rankings, remaining, arcBonus) {
 // Accepts an array of GreatBuildingContributionRow objects (from msg.responseData
 // in the passive path, or from extractGBRows() in the active path).
 // For buildings with current_progress > 0, calls getConstruction and scores profit.
-async function processGBRows(rowsData) {
+export async function processGBRows(rowsData) {
   const arcBonus = City.ArcBonus ?? 90;
-  console.log('[NeighborGB] processGBRows — input rows:', (rowsData ?? []).length, 'ArcBonus:', arcBonus);
+  console.log(
+    '[NeighborGB] processGBRows — input rows:',
+    (rowsData ?? []).length,
+    'ArcBonus:',
+    arcBonus,
+  );
 
   const activeRows = (rowsData ?? [])
     .filter(
@@ -317,15 +388,37 @@ async function processGBRows(rowsData) {
       maxProgress: row.max_progress != null ? Number(row.max_progress) : null,
     }));
 
-  console.log('[NeighborGB] processGBRows — activeRows (current_progress > 0):', activeRows.length);
+  console.log(
+    '[NeighborGB] processGBRows — activeRows (current_progress > 0):',
+    activeRows.length,
+  );
   if (activeRows.length) {
-    console.log('[NeighborGB] Active buildings:', activeRows.map(r => `${r.name} Lv${r.level} (${r.currentProgress}/${r.maxProgress})`).join(', '));
+    console.log(
+      '[NeighborGB] Active buildings:',
+      activeRows
+        .map(
+          (r) =>
+            `${r.name} Lv${r.level} (${r.currentProgress}/${r.maxProgress})`,
+        )
+        .join(', '),
+    );
   } else {
-    console.log('[NeighborGB] processGBRows — no buildings with active progress found');
+    console.log(
+      '[NeighborGB] processGBRows — no buildings with active progress found',
+    );
     if ((rowsData ?? []).length) {
       const sample = rowsData[0];
       console.log('[NeighborGB] Sample row keys:', Object.keys(sample || {}));
-      console.log('[NeighborGB] Sample row __class__:', sample?.__class__, 'entity_id:', sample?.entity_id, 'current_progress:', sample?.current_progress, 'player:', JSON.stringify(sample?.player));
+      console.log(
+        '[NeighborGB] Sample row __class__:',
+        sample?.__class__,
+        'entity_id:',
+        sample?.entity_id,
+        'current_progress:',
+        sample?.current_progress,
+        'player:',
+        JSON.stringify(sample?.player),
+      );
     }
   }
 
@@ -352,8 +445,7 @@ async function processGBRows(rowsData) {
       if (construction) {
         // Use construction data for more accurate progress if available
         const cp =
-          construction.state?.current_progress ??
-          construction.current_progress;
+          construction.state?.current_progress ?? construction.current_progress;
         const mp =
           construction.state?.max_progress ?? construction.max_progress;
         if (cp != null) accurateProgress = cp;
@@ -400,7 +492,7 @@ async function processGBRows(rowsData) {
 // UI helpers
 // ---------------------------------------------------------------------------
 
-function progressPct(current, max) {
+export function progressPct(current, max) {
   if (!max || max <= 0) return '?';
   const raw = (current / max) * 100;
   return raw > 0 && raw < 1 ? '<1' : Math.round(raw);
@@ -425,9 +517,11 @@ function showPassiveResults(results) {
       `${r.currentProgress}/${r.maxProgress ?? '?'} FP (${pct}%)`;
 
     for (const spot of r.profitableSpots) {
+      const medalStr = spot.rewardMedals ? ` 🏅${spot.rewardMedals}` : '';
+      const bpStr = spot.rewardBlueprints ? ` 📘${spot.rewardBlueprints}` : '';
       html +=
         `<div class="ms-2 text-success">🔒 P${spot.rank} ${spot.currentHolder}: ` +
-        `${spot.lockCost}FP → ${spot.rewardFP}FP (${spot.lockProfit}FP profit, ${spot.profitPct}% ROI)</div>`;
+        `${spot.lockCost}FP → ${spot.rewardFP}FP (${spot.lockProfit}FP profit, ${spot.profitPct}% ROI)${medalStr}${bpStr}</div>`;
     }
     html += `</div>`;
   }
@@ -461,7 +555,7 @@ function showScanResults(profitable, scanned, total) {
 
   // Keep only the most profitable spot per player+building
   const seen = new Set();
-  const dedupedSpots = allSpots.filter(entry => {
+  const dedupedSpots = allSpots.filter((entry) => {
     const key = `${entry.playerName}|${entry.name}|${entry.level}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -472,13 +566,14 @@ function showScanResults(profitable, scanned, total) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
-        <th>Lock Cost</th><th>Reward</th><th>Profit</th><th>ROI</th>
+        <th>Lock Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>BPs</th>
       </tr></thead><tbody>`;
 
     for (const entry of dedupedSpots) {
       const { spot } = entry;
-      const pct = entry.maxProgress > 0
-        ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
+      const pct =
+        entry.maxProgress > 0 ?
+          Math.round((entry.currentProgress / entry.maxProgress) * 100)
         : '?';
       html += `<tr>
         <td>${entry.hoodIndex ?? ''}</td>
@@ -490,6 +585,8 @@ function showScanResults(profitable, scanned, total) {
         <td>${spot.rewardFP}</td>
         <td class="text-success">${spot.lockProfit}</td>
         <td>${spot.profitPct}%</td>
+        <td>${spot.rewardMedals || 0}</td>
+        <td>${spot.rewardBlueprints || 0}</td>
       </tr>`;
     }
     html += `</tbody></table>`;
@@ -523,7 +620,10 @@ export async function scanAllNeighborGBs() {
   console.log('[NeighborGB] === SCAN BUTTON CLICKED ===');
   console.log('[NeighborGB] hoodlist length:', hoodlist.length);
   if (hoodlist.length) {
-    console.log('[NeighborGB] hoodlist sample [0]:', JSON.stringify(hoodlist[0]));
+    console.log(
+      '[NeighborGB] hoodlist sample [0]:',
+      JSON.stringify(hoodlist[0]),
+    );
   }
 
   if (!hoodlist.length) {
@@ -538,9 +638,18 @@ export async function scanAllNeighborGBs() {
   const total = neighbors.length;
   const profitable = [];
 
-  console.log('[NeighborGB] Starting full hood scan —', total, 'neighbors (filtered from', hoodlist.length, 'hoodlist entries)');
+  console.log(
+    '[NeighborGB] Starting full hood scan —',
+    total,
+    'neighbors (filtered from',
+    hoodlist.length,
+    'hoodlist entries)',
+  );
   if (total === 0) {
-    console.warn('[NeighborGB] No entries with is_neighbor found. hoodlist keys sample:', Object.keys(hoodlist[0] || {}));
+    console.warn(
+      '[NeighborGB] No entries with is_neighbor found. hoodlist keys sample:',
+      Object.keys(hoodlist[0] || {}),
+    );
   }
 
   for (let i = 0; i < neighbors.length; i++) {
@@ -551,13 +660,37 @@ export async function scanAllNeighborGBs() {
     showScanResults(profitable, i, total);
 
     try {
-      console.log('[NeighborGB] Scanning neighbor', i + 1, '/', total, ':', playerName, '(id:', playerId, ')');
+      console.log(
+        '[NeighborGB] Scanning neighbor',
+        i + 1,
+        '/',
+        total,
+        ':',
+        playerName,
+        '(id:',
+        playerId,
+        ')',
+      );
       const overviewResponse = await getNeighborOverview(playerId);
-      console.log('[NeighborGB] overviewResponse for', playerName, '— type:', typeof overviewResponse, 'is array:', Array.isArray(overviewResponse), 'length:', Array.isArray(overviewResponse) ? overviewResponse.length : 'N/A');
+      console.log(
+        '[NeighborGB] overviewResponse for',
+        playerName,
+        '— type:',
+        typeof overviewResponse,
+        'is array:',
+        Array.isArray(overviewResponse),
+        'length:',
+        Array.isArray(overviewResponse) ? overviewResponse.length : 'N/A',
+      );
       const rows = extractGBRows(overviewResponse);
       console.log('[NeighborGB] GB rows for', playerName, ':', rows.length);
       const results = await processGBRows(rows);
-      console.log('[NeighborGB] processGBRows results for', playerName, ':', results.length);
+      console.log(
+        '[NeighborGB] processGBRows results for',
+        playerName,
+        ':',
+        results.length,
+      );
 
       for (const r of results) {
         if (r.profitableSpots.length) {
@@ -627,28 +760,59 @@ export function initGBScanUI() {
 
 function updateScanReadiness(btn, statusDiv) {
   const checks = [
-    { label: 'Hood list', ok: hoodlist.length > 0, detail: hoodlist.length > 0 ? `${hoodlist.length} players` : 'open social bar' },
-    { label: 'Game URL', ok: !!gameJsonUrl, detail: gameJsonUrl ? 'captured' : 'waiting for game traffic' },
-    { label: 'Request ID', ok: gameRequestId > 0, detail: gameRequestId > 0 ? `#${gameRequestId}` : 'waiting for game traffic' },
-    { label: 'Player ID', ok: !!PlayerID, detail: PlayerID ? `${PlayerID}` : 'waiting for login data' },
-    { label: 'Arc bonus', ok: City.ArcBonus != null, detail: City.ArcBonus != null ? `${City.ArcBonus}%` : 'defaults to 90%' },
-    { label: 'Secret key', ok: isSecretDiscovered(), detail: isSecretDiscovered() ? 'discovered' : 'auto-discovers on first scan' },
+    {
+      label: 'Hood list',
+      ok: hoodlist.length > 0,
+      detail:
+        hoodlist.length > 0 ? `${hoodlist.length} players` : 'open social bar',
+    },
+    {
+      label: 'Game URL',
+      ok: !!gameJsonUrl,
+      detail: gameJsonUrl ? 'captured' : 'waiting for game traffic',
+    },
+    {
+      label: 'Request ID',
+      ok: gameRequestId > 0,
+      detail:
+        gameRequestId > 0 ? `#${gameRequestId}` : 'waiting for game traffic',
+    },
+    {
+      label: 'Player ID',
+      ok: !!PlayerID,
+      detail: PlayerID ? `${PlayerID}` : 'waiting for login data',
+    },
+    {
+      label: 'Arc bonus',
+      ok: City.ArcBonus != null,
+      detail: City.ArcBonus != null ? `${City.ArcBonus}%` : 'defaults to 90%',
+    },
+    {
+      label: 'Secret key',
+      ok: isSecretDiscovered(),
+      detail:
+        isSecretDiscovered() ? 'discovered' : 'auto-discovers on first scan',
+    },
   ];
 
   // Core prerequisites that must be met to enable the button
   const coreReady = checks[0].ok && checks[1].ok && checks[2].ok;
 
   btn.disabled = !coreReady;
-  btn.className = coreReady
-    ? 'btn btn-sm btn-warning mt-1 mb-1'
+  btn.className =
+    coreReady ?
+      'btn btn-sm btn-warning mt-1 mb-1'
     : 'btn btn-sm btn-outline-secondary mt-1 mb-1';
 
-  const lines = checks.map(c => {
-    const icon = c.ok ? '✅' : (c.label === 'Arc bonus' || c.label === 'Secret key' ? '⏳' : '❌');
+  const lines = checks.map((c) => {
+    const icon =
+      c.ok ? '✅'
+      : c.label === 'Arc bonus' || c.label === 'Secret key' ? '⏳'
+      : '❌';
     return `${icon} ${c.label}: ${c.detail}`;
   });
   statusDiv.innerHTML = lines.join('<br>');
 
-  const allReady = checks.every(c => c.ok);
+  const allReady = checks.every((c) => c.ok);
   return allReady;
 }

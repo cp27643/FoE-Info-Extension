@@ -58,6 +58,7 @@ import {
   initGBScanUI,
   neighborGBRequestIds,
 } from './msg/NeighborGBService.js';
+import { initFriendsScanUI } from './msg/FriendsGBService.js';
 import {
   clearBattleground,
   getBattleground,
@@ -338,6 +339,10 @@ export var gbScanDiv = document.createElement('div');
 content.appendChild(gbScanDiv);
 gbScanDiv.id = 'gbScan';
 initGBScanUI();
+export var friendsScanDiv = document.createElement('div');
+content.appendChild(friendsScanDiv);
+friendsScanDiv.id = 'friendsScan';
+initFriendsScanUI();
 export var cultural = document.createElement('div');
 content.appendChild(cultural);
 cultural.id = 'cultural';
@@ -698,7 +703,9 @@ function handleRequestFinished(request) {
             }
           }
         }
-      } catch (e) { /* non-JSON postData, ignore */ }
+      } catch (e) {
+        /* non-JSON postData, ignore */
+      }
     }
     // console.debug(request.request.headers);
     contentType = request.request.headers.find(
@@ -1398,7 +1405,10 @@ function handleRequestFinished(request) {
             // Skip responses to requests we sent — they are handled directly by
             // NeighborGBService and must not be double-processed here.
             // Primary: check the registered set. Secondary: scanner IDs are always >= 1,000,000.
-            if (neighborGBRequestIds.has(msg.requestId) || msg.requestId >= 1000000) {
+            if (
+              neighborGBRequestIds.has(msg.requestId) ||
+              msg.requestId >= 1000000
+            ) {
               // handled by NeighborGBService
             } else if (msg.requestMethod == 'getOtherPlayerOverview') {
               /*GB Donors */
