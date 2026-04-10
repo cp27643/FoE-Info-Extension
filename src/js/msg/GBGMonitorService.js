@@ -163,39 +163,36 @@ function diffProvinces(oldMap, newMap) {
       }
     }
 
-    // --- New or increased attacks ---
+    // --- Opportunity: another guild attacking a province we don't own ---
     for (const cp of newProv.conquestProgress ?? []) {
       const oldCp = oldProv?.conquestProgress?.find(
         (o) => o.participantId === cp.participantId,
       );
       const attackerName = getParticipantName(cp.participantId);
       const pct = Math.round((cp.progress / cp.maxProgress) * 100);
+      const weAreAttacking = cp.participantId === ourParticipantId;
 
-      if (!oldCp) {
-        // New attack
-        if (weOwn) {
+      // Only alert on provinces we don't own AND we aren't the attacker
+      if (!weOwn && !weAreAttacking && cp.progress > (oldCp?.progress ?? 0)) {
+        // Fire at 50% and 75% thresholds
+        const threshold =
+          pct >= 75 ? 75
+          : pct >= 50 ? 50
+          : 0;
+        const oldPct =
+          oldCp ? Math.round((oldCp.progress / oldCp.maxProgress) * 100) : 0;
+        const oldThreshold =
+          oldPct >= 75 ? 75
+          : oldPct >= 50 ? 50
+          : 0;
+
+        if (threshold > 0 && threshold > oldThreshold) {
+          const defenderName = getParticipantName(newProv.ownerId);
           alerts.push({
-            type: 'under_attack',
-            key: `attack-${newProv.id}-${cp.participantId}`,
-            emoji: '🔴',
-            message: `🔴 **${provName} UNDER ATTACK** by ${attackerName} (${cp.progress}/${cp.maxProgress}, ${pct}%)`,
-          });
-        } else {
-          alerts.push({
-            type: 'new_attack',
-            key: `attack-${newProv.id}-${cp.participantId}`,
-            emoji: '⚔️',
-            message: `⚔️ New attack on ${provName} (${getParticipantName(newProv.ownerId)}) by ${attackerName} (${cp.progress}/${cp.maxProgress}, ${pct}%)`,
-          });
-        }
-      } else if (cp.progress > oldCp.progress) {
-        // Attack progressed
-        if (weOwn && pct >= 50) {
-          alerts.push({
-            type: 'attack_progress',
-            key: `attack-prog-${newProv.id}-${cp.participantId}-${Math.floor(pct / 25) * 25}`,
-            emoji: '🔴',
-            message: `🔴 **${provName} attack at ${pct}%** by ${attackerName} (${cp.progress}/${cp.maxProgress})`,
+            type: 'opportunity',
+            key: `opp-${newProv.id}-${cp.participantId}-${threshold}`,
+            emoji: '🎯',
+            message: `🎯 **OPPORTUNITY: ${provName}** — ${attackerName} attacking ${defenderName} at ${pct}% (${cp.progress}/${cp.maxProgress})`,
           });
         }
       }
