@@ -265,7 +265,7 @@ export function calculateProfitableSpots(rankings, remaining, arcBonus) {
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
-      medals[rank - 1] = place.reward?.medals ?? 0;
+      medals[rank - 1] = place.reward?.resources?.medals ?? 0;
       blueprints[rank - 1] = place.reward?.blueprints ?? 0;
       if (place.player?.is_self || place.player?.player_id == PlayerID) {
         myRank = rank;
