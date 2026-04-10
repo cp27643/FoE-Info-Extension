@@ -175,16 +175,18 @@ function diffProvinces(oldMap, newMap) {
 
       // Only alert on provinces we don't own AND we aren't the attacker
       if (!weOwn && !weAreAttacking && cp.progress > (oldCp?.progress ?? 0)) {
-        // Fire at 50% and 75% thresholds
+        // Fire at 10%, 50%, and 75% thresholds
         const threshold =
           pct >= 75 ? 75
           : pct >= 50 ? 50
+          : pct >= 10 ? 10
           : 0;
         const oldPct =
           oldCp ? Math.round((oldCp.progress / oldCp.maxProgress) * 100) : 0;
         const oldThreshold =
           oldPct >= 75 ? 75
           : oldPct >= 50 ? 50
+          : oldPct >= 10 ? 10
           : 0;
 
         if (threshold > 0 && threshold > oldThreshold) {
