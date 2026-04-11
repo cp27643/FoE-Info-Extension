@@ -236,6 +236,26 @@ export async function postBatchGameRequest(payloads) {
   }
 }
 
+// The game server limits same-method requests to ~5 per batch XHR.
+// This sends payloads in chunks of BATCH_CHUNK_SIZE with a delay between.
+const BATCH_CHUNK_SIZE = 5;
+const BATCH_CHUNK_DELAY_MS = 300;
+
+export async function postChunkedBatchRequest(payloads) {
+  const allResponses = [];
+  for (let i = 0; i < payloads.length; i += BATCH_CHUNK_SIZE) {
+    if (i > 0) {
+      await new Promise((res) => setTimeout(res, BATCH_CHUNK_DELAY_MS));
+    }
+    const chunk = payloads.slice(i, i + BATCH_CHUNK_SIZE);
+    const response = await postBatchGameRequest(chunk);
+    if (Array.isArray(response)) {
+      allResponses.push(...response);
+    }
+  }
+  return allResponses;
+}
+
 // ---------------------------------------------------------------------------
 // Game API wrappers
 // ---------------------------------------------------------------------------
@@ -758,7 +778,7 @@ export async function scanAllNeighborGBs() {
     }));
 
     showScanResults([], 0, total, 'Fetching neighbor overviews…');
-    const overviewResponse = await postBatchGameRequest(overviewPayloads);
+    const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
 
     // Parse batch response — responses include TimeService updates interleaved
     // with our actual responses. Match by filtering to getOtherPlayerOverview.
@@ -842,7 +862,7 @@ export async function scanAllNeighborGBs() {
         total,
         `Fetching ${constructionPayloads.length} building details…`,
       );
-      const constructionResponse = await postBatchGameRequest(
+      const constructionResponse = await postChunkedBatchRequest(
         constructionPayloads,
       );
 

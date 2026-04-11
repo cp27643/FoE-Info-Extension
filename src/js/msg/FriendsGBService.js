@@ -40,7 +40,7 @@ import {
 import { availableFP } from './ResourceService.js';
 import { makeSortable } from '../fn/sortableTable.js';
 import {
-  postBatchGameRequest,
+  postChunkedBatchRequest,
   extractGBRows,
   calculateProfitableSpots,
   progressPct,
@@ -172,7 +172,7 @@ async function scanAllFriendGBs() {
     }));
 
     showFriendsScanResults([], 0, total, 'Fetching friend overviews…');
-    const overviewResponse = await postBatchGameRequest(overviewPayloads);
+    const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
 
     // Parse batch response — filter to getOtherPlayerOverview results
     const overviewResults = [];
@@ -250,7 +250,7 @@ async function scanAllFriendGBs() {
         total,
         `Fetching ${constructionPayloads.length} building details…`,
       );
-      const constructionResponse = await postBatchGameRequest(
+      const constructionResponse = await postChunkedBatchRequest(
         constructionPayloads,
       );
 
