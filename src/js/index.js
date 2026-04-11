@@ -60,6 +60,7 @@ import {
 } from './msg/NeighborGBService.js';
 import { initFriendsScanUI } from './msg/FriendsGBService.js';
 import { initGuildScanUI } from './msg/GuildGBService.js';
+import { initScanAllUI } from './msg/ScanAllService.js';
 import {
   initGBGMonitorUI,
   onBattlegroundUpdate,
@@ -361,6 +362,10 @@ export var guildScanDiv = document.createElement('div');
 content.appendChild(guildScanDiv);
 guildScanDiv.id = 'guildScan';
 initGuildScanUI();
+export var scanAllDiv = document.createElement('div');
+content.appendChild(scanAllDiv);
+scanAllDiv.id = 'scanAll';
+initScanAllUI();
 export var kitTrackerDiv = document.createElement('div');
 content.appendChild(kitTrackerDiv);
 kitTrackerDiv.id = 'kitTracker';

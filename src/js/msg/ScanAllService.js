@@ -20,10 +20,7 @@
  * "Source" column identifying where each opportunity came from.
  */
 
-import {
-  scanAllDiv,
-  availablePacksFP,
-} from '../index.js';
+import { scanAllDiv, availablePacksFP } from '../index.js';
 import { hoodlist, friends, guildMembers } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
