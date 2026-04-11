@@ -55,7 +55,7 @@ function showScanAllResults(allRows) {
       <button id="scanAllCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export Excel</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
-        <th>Source</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
+        <th>Source</th><th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
         <th>Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>BPs</th>
       </tr></thead><tbody>`;
 
@@ -79,6 +79,7 @@ function showScanAllResults(allRows) {
 
       html += `<tr class="${rowClass}">
         <td><span class="badge ${sourceBadge}">${row.source}</span></td>
+        <td>${row.number}</td>
         <td>${row.playerName}</td>
         <td>${row.building}</td>
         <td>${row.progress}%</td>
@@ -136,6 +137,7 @@ function normalizeSnipeSpots(profitable, source) {
         : 0;
       rows.push({
         source,
+        number: item.hoodIndex ?? item.friendIndex ?? '',
         playerName: item.playerName,
         building: `${item.name} Lv${item.level}`,
         progress: pct,
@@ -163,12 +165,13 @@ function normalize19Spots(profitable, source) {
         : 0;
       rows.push({
         source,
+        number: item.guildIndex ?? '',
         playerName: item.playerName,
         building: `${item.name} Lv${item.level}`,
         progress: pct,
         rank: spot.rank,
         holder: spot.currentHolder,
-        cost: spot.fpNeeded,
+        cost: spot.threadPrice,
         reward: spot.rewardFP,
         profit: spot.userProfit,
         roi: spot.profitPct,
@@ -191,6 +194,7 @@ async function exportScanAllToExcel(allRows, filename) {
 
   const headers = [
     'Source',
+    '#',
     'Player',
     'Building',
     'Progress',
@@ -221,6 +225,7 @@ async function exportScanAllToExcel(allRows, filename) {
   for (const r of allRows) {
     const row = ws.addRow([
       r.source,
+      r.number,
       r.playerName,
       r.building,
       r.progress / 100,
@@ -233,18 +238,18 @@ async function exportScanAllToExcel(allRows, filename) {
       r.bps,
     ]);
 
-    row.getCell(4).numFmt = '0%';
-    row.getCell(9).numFmt = '0%';
+    row.getCell(5).numFmt = '0%';
+    row.getCell(10).numFmt = '0%';
 
     const canAfford = totalFP > 0 && r.cost <= totalFP;
     if (totalFP > 0) {
-      row.getCell(6).font = {
+      row.getCell(7).font = {
         bold: canAfford,
         color: { argb: canAfford ? 'FF198754' : 'FFDC3545' },
       };
     }
 
-    row.getCell(8).font = {
+    row.getCell(9).font = {
       bold: true,
       color: { argb: r.profit > 0 ? 'FF198754' : 'FFDC3545' },
     };
@@ -263,6 +268,7 @@ async function exportScanAllToExcel(allRows, filename) {
 
   ws.columns = [
     { width: 10 },
+    { width: 6 },
     { width: 18 },
     { width: 22 },
     { width: 10 },
