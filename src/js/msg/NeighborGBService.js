@@ -67,6 +67,22 @@ const GBG_MONITOR_ID_BASE = 2_000_000;
 let lastUsedRequestId = SCANNER_ID_BASE;
 let lastUsedGBGRequestId = GBG_MONITOR_ID_BASE;
 
+// Throttle between scanner XHR requests to avoid overwhelming the game server.
+// Without this, rapid-fire requests corrupt the server's session state and
+// cause "something went wrong" errors on the game client's own later requests.
+const REQUEST_THROTTLE_MS = 200;
+let lastRequestTime = 0;
+
+async function throttle() {
+  const elapsed = Date.now() - lastRequestTime;
+  if (elapsed < REQUEST_THROTTLE_MS) {
+    await new Promise((res) =>
+      setTimeout(res, REQUEST_THROTTLE_MS - elapsed),
+    );
+  }
+  lastRequestTime = Date.now();
+}
+
 function getNextRequestId() {
   lastUsedRequestId += 1;
   return lastUsedRequestId;
@@ -80,6 +96,7 @@ function getNextGBGRequestId() {
 // POSTs a game API payload with automatic retry.
 export async function postGameRequest(payloadTemplate) {
   const MAX_RETRIES = 3;
+  await throttle();
   console.log(
     '[NeighborGB] postGameRequest called, method:',
     payloadTemplate[0]?.requestMethod,
