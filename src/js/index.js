@@ -64,6 +64,10 @@ import {
   onBattlegroundUpdate,
 } from './msg/GBGMonitorService.js';
 import {
+  onInventoryReceived,
+  initKitTrackerUI,
+} from './msg/KitTrackerService.js';
+import {
   clearBattleground,
   getBattleground,
   getBuildings,
@@ -352,6 +356,10 @@ export var friendsScanDiv = document.createElement('div');
 content.appendChild(friendsScanDiv);
 friendsScanDiv.id = 'friendsScan';
 initFriendsScanUI();
+export var kitTrackerDiv = document.createElement('div');
+content.appendChild(kitTrackerDiv);
+kitTrackerDiv.id = 'kitTracker';
+initKitTrackerUI();
 export var cultural = document.createElement('div');
 content.appendChild(cultural);
 cultural.id = 'cultural';
@@ -940,6 +948,7 @@ function handleRequestFinished(request) {
                   document.getElementById('availableFPID').textContent =
                     availablePacksFP + availableFP;
               }
+              onInventoryReceived(msg.responseData);
             }
           } else if (
             msg.requestClass == 'ArmyUnitManagementService' &&
