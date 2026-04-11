@@ -237,9 +237,13 @@ export async function postBatchGameRequest(payloads) {
   }
 }
 
-// The game server limits same-method requests to ~5 per batch XHR.
-// Fire all chunks in parallel via a single eval (fast), retry any 503s.
+// The game server limits same-method requests to ~5 per batch XHR and
+// 503s if more than ~30 XHRs arrive concurrently. We split into waves
+// of MAX_WAVE_SIZE chunks with a short gap so all requests succeed
+// without retries.
 const BATCH_CHUNK_SIZE = 5;
+const MAX_WAVE_SIZE = 20;
+const WAVE_GAP_MS = 500;
 
 export async function postChunkedBatchRequest(payloads) {
   if (!gameJsonUrl) {
@@ -254,59 +258,41 @@ export async function postChunkedBatchRequest(payloads) {
     chunks.push(payloads.slice(i, i + BATCH_CHUNK_SIZE));
   }
 
-  // Assign each chunk a unique requestId
-  const batchGroups = chunks.map((chunk) => ({
-    payloads: chunk,
-    requestId: getNextRequestId(),
-  }));
-  batchGroups.forEach((g) => neighborGBRequestIds.add(g.requestId));
+  // Split chunks into waves of MAX_WAVE_SIZE
+  const waves = [];
+  for (let i = 0; i < chunks.length; i += MAX_WAVE_SIZE) {
+    waves.push(chunks.slice(i, i + MAX_WAVE_SIZE));
+  }
 
-  const results = await sendParallelBatchesAtomic(batchGroups, {
-    gameUrl: gameJsonUrl,
-    clientId: gameRequestHeaders['client-identification'] || '',
-    timeout: 30000,
-  });
-
-  // Collect successes, gather 503 failures for retry
   const allResponses = [];
-  const retryGroups = [];
-  results.forEach((r, i) => {
-    if (r.__fetchError__) {
-      console.warn(
-        '[NeighborGB] Chunk',
-        i,
-        'failed:',
-        r.__fetchError__,
-        '— will retry',
-      );
-      // Re-assign a fresh requestId for the retry
-      const retryId = getNextRequestId();
-      neighborGBRequestIds.add(retryId);
-      retryGroups.push({ payloads: chunks[i], requestId: retryId });
-    } else if (Array.isArray(r.response)) {
-      allResponses.push(...r.response);
-    }
-  });
+  const allGroups = [];
 
-  // Retry failed chunks (usually just 1-2 that got 503'd)
-  if (retryGroups.length > 0) {
-    console.log('[NeighborGB] Retrying', retryGroups.length, 'failed chunks');
-    await new Promise((res) => setTimeout(res, 1000));
-    const retryResults = await sendParallelBatchesAtomic(retryGroups, {
+  for (let w = 0; w < waves.length; w++) {
+    if (w > 0) await new Promise((res) => setTimeout(res, WAVE_GAP_MS));
+
+    const batchGroups = waves[w].map((chunk) => ({
+      payloads: chunk,
+      requestId: getNextRequestId(),
+    }));
+    batchGroups.forEach((g) => neighborGBRequestIds.add(g.requestId));
+    allGroups.push(...batchGroups);
+
+    const results = await sendParallelBatchesAtomic(batchGroups, {
       gameUrl: gameJsonUrl,
       clientId: gameRequestHeaders['client-identification'] || '',
       timeout: 30000,
     });
-    retryResults.forEach((r) => {
+
+    results.forEach((r) => {
       if (Array.isArray(r.response)) allResponses.push(...r.response);
-      else console.warn('[NeighborGB] Retry still failed:', r.__fetchError__);
+      else if (r.__fetchError__)
+        console.warn('[NeighborGB] Chunk failed:', r.__fetchError__);
     });
   }
 
   // Clean up requestIds after a delay
   setTimeout(() => {
-    batchGroups.forEach((g) => neighborGBRequestIds.delete(g.requestId));
-    retryGroups.forEach((g) => neighborGBRequestIds.delete(g.requestId));
+    allGroups.forEach((g) => neighborGBRequestIds.delete(g.requestId));
   }, 30000);
 
   return allResponses;
