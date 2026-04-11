@@ -687,8 +687,10 @@ function showPassiveResults(results) {
   overview.innerHTML = html;
 }
 
-// Exports scanner spots to CSV and triggers a download that opens in Excel.
-export function exportSpotsToCSV(dedupedSpots, filename = 'gb_scan') {
+// Exports scanner spots to a formatted .xlsx and triggers a download.
+export function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
+  const XLSX = require('xlsx');
+
   const headers = [
     '#',
     'Player',
@@ -705,46 +707,63 @@ export function exportSpotsToCSV(dedupedSpots, filename = 'gb_scan') {
     'Blueprints',
   ];
 
-  const escCSV = (v) => {
-    const s = String(v ?? '');
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-      ? `"${s.replace(/"/g, '""')}"`
-      : s;
-  };
-
   const rows = dedupedSpots.map((entry) => {
     const { spot } = entry;
     const pct =
       entry.maxProgress > 0
         ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
-        : '';
+        : 0;
     return [
       entry.hoodIndex ?? entry.friendIndex ?? '',
       entry.playerName,
       entry.name,
       entry.level,
-      `${pct}%`,
+      pct / 100,
       spot.rank,
       spot.currentHolder,
       spot.lockCost,
       spot.rewardFP,
       spot.lockProfit,
-      spot.profitPct,
+      spot.profitPct / 100,
       spot.rewardMedals || 0,
       spot.rewardBlueprints || 0,
-    ]
-      .map(escCSV)
-      .join(',');
+    ];
   });
 
-  const csv = [headers.join(','), ...rows].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 4 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 6 },
+    { wch: 10 },
+    { wch: 6 },
+    { wch: 18 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 8 },
+    { wch: 8 },
+    { wch: 10 },
+  ];
+
+  // Format Progress column (E) as percentage and ROI column (K) as percentage
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = range.s.r + 1; r <= range.e.r; r++) {
+    const progressCell = ws[XLSX.utils.encode_cell({ r, c: 4 })];
+    if (progressCell) progressCell.z = '0%';
+    const roiCell = ws[XLSX.utils.encode_cell({ r, c: 10 })];
+    if (roiCell) roiCell.z = '0%';
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'GB Scan');
+  XLSX.writeFile(
+    wb,
+    `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
 }
 
 // Renders full-scan results (all neighbors) into gbScanDiv.
@@ -784,7 +803,7 @@ function showScanResults(profitable, scanned, total, statusMsg) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
     const fpLabel = totalFP > 0 ? ` | Available FP: ${totalFP.toLocaleString()}` : '';
     html += `<p class="mb-1 small text-muted">${fpLabel ? fpLabel.slice(3) : ''}
-      <button id="hoodCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export CSV</button></p>`;
+      <button id="hoodCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export Excel</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
@@ -839,7 +858,7 @@ function showScanResults(profitable, scanned, total, statusMsg) {
   const csvBtn = gbScanDiv.querySelector('#hoodCsvBtn');
   if (csvBtn) {
     csvBtn.addEventListener('click', () =>
-      exportSpotsToCSV(dedupedSpots, 'hood_gb_scan'),
+      exportSpotsToExcel(dedupedSpots, 'hood_gb_scan'),
     );
   }
 }
