@@ -35,18 +35,17 @@ import { scanGuildData } from './GuildGBService.js';
 // Results renderer
 // ---------------------------------------------------------------------------
 
-function showScanAllResults(allRows, statusMsg) {
+function showScanAllResults(allRows) {
   const arcBonus = City.ArcBonus ?? 90;
-  const status =
-    statusMsg ??
-    `${allRows.length} opportunities across all sources (Arc ${arcBonus}%)`;
+  const status = `${allRows.length} opportunities across all sources (Arc ${arcBonus}%)`;
 
-  let html = `<div class="alert alert-dark alert-dismissible show collapsed" role="alert">
+  // Final results always render expanded so the table is visible
+  let html = `<div class="alert alert-dark alert-dismissible show" role="alert">
     <p id="scanAllLabel" href="#scanAllText" data-bs-toggle="collapse">
-      ${element.icon('scanAllicon', 'scanAllText', collapse.collapseScanAll)}
+      ${element.icon('scanAllicon', 'scanAllText', false)}
       <strong>Scan All — Combined Results</strong> — <small>${status}</small></p>
     ${element.close()}
-    <div id="scanAllText" class="resize collapse ${collapse.collapseScanAll == false ? 'show' : ''}">`;
+    <div id="scanAllText" class="resize collapse show">`;
 
   if (allRows.length) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
@@ -93,15 +92,21 @@ function showScanAllResults(allRows, statusMsg) {
       </tr>`;
     }
     html += `</tbody></table>`;
-  } else if (!statusMsg) {
+  } else {
     html += `<p class="mb-0">No opportunities found across hood, friends, or guild.</p>`;
   }
 
   html += `</div></div>`;
 
-  const btn = scanAllDiv.querySelector('#scanAllBtn');
-  scanAllDiv.innerHTML = html;
-  if (btn) scanAllDiv.prepend(btn);
+  // Remove any old results panel but keep the button
+  const oldPanel = scanAllDiv.querySelector('.alert');
+  if (oldPanel) oldPanel.remove();
+
+  // Insert results panel after button
+  const resultsDiv = document.createElement('div');
+  resultsDiv.innerHTML = html;
+  scanAllDiv.appendChild(resultsDiv);
+
   const tbl = scanAllDiv.querySelector('table');
   if (tbl) makeSortable(tbl);
 
@@ -289,6 +294,37 @@ async function exportScanAllToExcel(allRows, filename) {
 }
 
 // ---------------------------------------------------------------------------
+// Progress rendering — lightweight updates without rebuilding the DOM
+// ---------------------------------------------------------------------------
+
+function showProgress(pct, label) {
+  let container = scanAllDiv.querySelector('#scanAllProgress');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'scanAllProgress';
+    container.className = 'mb-2';
+    // Insert after the button
+    const btn = scanAllDiv.querySelector('#scanAllBtn');
+    if (btn) btn.after(container);
+    else scanAllDiv.appendChild(container);
+  }
+  container.innerHTML = `
+    <div class="small text-muted mb-1">${label}</div>
+    <div class="progress" style="height: 18px;">
+      <div class="progress-bar progress-bar-striped progress-bar-animated bg-dark"
+           role="progressbar" style="width: ${pct}%"
+           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+        ${Math.round(pct)}%
+      </div>
+    </div>`;
+}
+
+function clearProgress() {
+  const el = scanAllDiv.querySelector('#scanAllProgress');
+  if (el) el.remove();
+}
+
+// ---------------------------------------------------------------------------
 // Core scan — runs all available scans sequentially, merges results
 // ---------------------------------------------------------------------------
 
@@ -301,15 +337,34 @@ async function runScanAll() {
     btn.textContent = '⏳ Scanning all…';
   }
 
+  // Remove any previous results panel (keep button + progress only)
+  const oldPanel = scanAllDiv.querySelector('.alert');
+  if (oldPanel) oldPanel.remove();
+
   try {
     const allRows = [];
     const sources = [];
 
-    // Run scans sequentially to avoid overwhelming the server
+    // Determine which scans are available to calculate progress weights
+    const scans = [];
+    if (hoodlist.length > 0) scans.push('hood');
+    if (friends.length > 0) scans.push('friends');
+    if (guildMembers.length > 0) scans.push('guild');
+
+    if (scans.length === 0) {
+      showProgress(100, 'No player lists loaded — open the social bar first.');
+      return;
+    }
+
+    const stepWeight = 100 / scans.length;
+    let baseProgress = 0;
+
+    // Hood
     if (hoodlist.length > 0) {
-      showScanAllResults([], 'Scanning hood…');
       try {
-        const { profitable } = await scanHoodData();
+        const { profitable } = await scanHoodData((msg) =>
+          showProgress(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
+        );
         const rows = normalizeSnipeSpots(profitable, 'Hood');
         allRows.push(...rows);
         sources.push(`Hood: ${rows.length}`);
@@ -317,14 +372,16 @@ async function runScanAll() {
         console.warn('[ScanAll] Hood scan failed:', e);
         sources.push('Hood: failed');
       }
-    } else {
-      sources.push('Hood: skipped (no list)');
+      baseProgress += stepWeight;
+      showProgress(baseProgress, 'Hood complete');
     }
 
+    // Friends
     if (friends.length > 0) {
-      showScanAllResults(allRows, 'Scanning friends…');
       try {
-        const { profitable } = await scanFriendsData();
+        const { profitable } = await scanFriendsData((msg) =>
+          showProgress(baseProgress + stepWeight * 0.3, `Friends: ${msg}`),
+        );
         const rows = normalizeSnipeSpots(profitable, 'Friends');
         allRows.push(...rows);
         sources.push(`Friends: ${rows.length}`);
@@ -332,14 +389,16 @@ async function runScanAll() {
         console.warn('[ScanAll] Friends scan failed:', e);
         sources.push('Friends: failed');
       }
-    } else {
-      sources.push('Friends: skipped (no list)');
+      baseProgress += stepWeight;
+      showProgress(baseProgress, 'Friends complete');
     }
 
+    // Guild
     if (guildMembers.length > 0) {
-      showScanAllResults(allRows, 'Scanning guild…');
       try {
-        const { profitable } = await scanGuildData();
+        const { profitable } = await scanGuildData((msg) =>
+          showProgress(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
+        );
         const rows = normalize19Spots(profitable, 'Guild');
         allRows.push(...rows);
         sources.push(`Guild: ${rows.length}`);
@@ -347,9 +406,10 @@ async function runScanAll() {
         console.warn('[ScanAll] Guild scan failed:', e);
         sources.push('Guild: failed');
       }
-    } else {
-      sources.push('Guild: skipped (no list)');
+      baseProgress += stepWeight;
     }
+
+    showProgress(100, 'Building results table…');
 
     // Dedupe: keep best profit per player+building per source
     const seen = new Set();
@@ -363,6 +423,7 @@ async function runScanAll() {
     // Sort by profit descending
     deduped.sort((a, b) => b.profit - a.profit);
 
+    clearProgress();
     showScanAllResults(deduped);
     console.log('[ScanAll] Complete —', sources.join(', '));
   } finally {
