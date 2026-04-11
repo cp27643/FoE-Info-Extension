@@ -559,7 +559,7 @@ async function scanAllGuildGBs() {
 
   try {
     const { profitable, total } = await scanGuildData((msg) =>
-      showGuildScanResults([], 0, total ?? 0, msg),
+      showGuildScanResults([], 0, 0, msg),
     );
     showGuildScanResults(profitable, total, total);
     console.log(

@@ -327,7 +327,7 @@ async function scanAllFriendGBs() {
 
   try {
     const { profitable, total } = await scanFriendsData((msg) =>
-      showFriendsScanResults([], 0, total ?? 0, msg),
+      showFriendsScanResults([], 0, 0, msg),
     );
     showFriendsScanResults(profitable, total, total);
     console.log(

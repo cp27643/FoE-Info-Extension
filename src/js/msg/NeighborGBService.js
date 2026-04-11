@@ -1117,7 +1117,7 @@ export async function scanAllNeighborGBs() {
 
   try {
     const { profitable, total } = await scanHoodData((msg) =>
-      showScanResults([], 0, total ?? 0, msg),
+      showScanResults([], 0, 0, msg),
     );
     showScanResults(profitable, total, total);
   } finally {
