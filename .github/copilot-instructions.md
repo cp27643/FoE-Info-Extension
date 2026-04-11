@@ -32,7 +32,11 @@ Chrome/Firefox browser extension (Manifest V3) for Forge of Empires. It injects 
 
 ### Key Directories
 
-- `src/js/msg/` — One service module per game system. Each exports functions that accept raw game API response objects and render results into the panel.
+- `src/js/msg/` — One service module per game system. Each exports functions that accept raw game API response objects and render results into the panel. Key modules:
+  - `NeighborGBService.js` — Hood GB scanner, wave-based parallel transport (`postChunkedBatchRequest`), Excel export (`exportSpotsToExcel`)
+  - `FriendsGBService.js` — Friends GB scanner (imports shared transport + export from NeighborGBService)
+  - `GBGMonitorService.js` — GBG passive WebSocket monitor
+  - `KitTrackerService.js` — Inventory upgrade kit tracker (parses kits by building set and tier)
 - `src/js/fn/` — Shared utilities:
   - `helper.js` — Formatters (era names, GB names, resource short names)
   - `globals.js` — Global state (`toolOptions`) with per-section size setters
@@ -96,9 +100,41 @@ DevTools theme is detected via `browser.devtools.panels.themeName`. When `"dark"
 
 jQuery i18n (`@wikimedia/jquery.i18n`). Strings defined in `src/i18n/*.json`. Use `data-i18n="key"` attributes in HTML or `$.i18n('key')` in JS. Add new keys to `en.json` first, then other locale files.
 
-### Active Game Requests (NeighborGBService)
+### Active Game Requests (Scanner Transport Layer)
 
 `requestIdTracker.js` can send outgoing game API requests by eval'ing XHR scripts in the inspected page. It auto-discovers the game's version secret (for MD5 request signing) from the ForgeHX Haxe class registry. Scanner requests use requestIds starting at 1,000,000 to avoid collisions with the game client's own counter.
+
+**Transport functions** (in `requestIdTracker.js`):
+
+- `sendJsonRequestAtomic()` — Single signed request via eval + polling.
+- `sendBatchRequestAtomic()` — Single batch (up to 5 same-method requests per XHR).
+- `sendParallelBatchesAtomic()` — Fires ALL XHRs in one eval call and polls all callback keys in one eval per tick. Dramatically reduces eval round-trips.
+
+**Wave-based parallel scanning** (in `NeighborGBService.js`):
+
+- `postChunkedBatchRequest()` splits requests into chunks of `BATCH_CHUNK_SIZE=5`, groups chunks into waves of `MAX_WAVE_SIZE=20`, fires each wave in parallel via `sendParallelBatchesAtomic()`, and waits `WAVE_GAP_MS=500` between waves to avoid 503 rate limiting.
+- 503 errors are automatically retried after a 1s delay.
+- Used by both the Hood GB Scanner and Friends GB Scanner.
+
+### Excel Export
+
+Both GB scanners support exporting results to `.xlsx` using the `exceljs` npm package. `exportSpotsToExcel()` in `NeighborGBService.js` creates a formatted workbook with colored headers, conditional cell formatting (green/red for affordability), auto-filter, and frozen header row. The Friends scanner imports and reuses this function.
+
+### Kit Tracker
+
+`KitTrackerService.js` intercepts `InventoryService.getItems` and parses all upgrade/selection kit items from the player's inventory. It groups kits by building name (stripping tier suffixes like "Golden Upgrade Kit" and flavor prefixes like "Mystic", "Enchanted", etc.) and displays a collapsible table showing which tiers (base/silver/golden/platinum) the player has assembled kits or fragments for.
+
+### Collapsible Panels
+
+Every panel section uses a standard collapse pattern:
+
+1. Add a `collapseXxx` exported var (default state) in `src/js/fn/collapse.js`.
+2. Add a `fCollapseXxx()` toggle function that flips the var and calls `element.updateIcon()`.
+3. Add a `case 'collapseXxx'` in the `set()` switch in `collapse.js`.
+4. In the service module's render function, use:
+   - `<p id="xxxLabel" href="#xxxText" data-bs-toggle="collapse">` with `element.icon('xxxicon', 'xxxText', collapse.collapseXxx)` for the header.
+   - `<div id="xxxText" class="collapse ${collapse.collapseXxx == false ? 'show' : ''}">` for the content.
+   - Attach `collapse.fCollapseXxx` as a click listener on the label element.
 
 ### Copyright Header
 
