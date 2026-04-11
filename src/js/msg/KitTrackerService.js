@@ -23,6 +23,7 @@
 
 import { kitTrackerDiv } from '../index.js';
 import * as element from '../fn/AddElement';
+import * as collapse from '../fn/collapse.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -193,11 +194,18 @@ function groupKitsByBuilding(parsedItems) {
 function renderKitTracker() {
   if (!lastInventoryData) {
     kitTrackerDiv.innerHTML = `
-      <div class="alert alert-secondary alert-dismissible show" role="alert">
+      <div class="alert alert-secondary alert-dismissible show collapsed" role="alert">
+        <p id="kitTrackerLabel" href="#kitTrackerText" data-bs-toggle="collapse">
+          ${element.icon('kitTrackericon', 'kitTrackerText', collapse.collapseKitTracker)}
+          <strong>Kit Tracker</strong></p>
         ${element.close()}
-        <p><strong>Kit Tracker</strong></p>
-        <p class="mb-0 small">Waiting for inventory data — open your inventory in the game.</p>
+        <div id="kitTrackerText" class="collapse ${collapse.collapseKitTracker == false ? 'show' : ''}">
+          <p class="mb-0 small">Waiting for inventory data — open your inventory in the game.</p>
+        </div>
       </div>`;
+    document
+      .getElementById('kitTrackerLabel')
+      .addEventListener('click', collapse.fCollapseKitTracker);
     return;
   }
 
@@ -220,14 +228,16 @@ function renderKitTracker() {
 
   // Count stats
   const totalSets = sortedBuildings.length;
-  const totalKits = parsed.length;
   const assembled = parsed.filter((p) => !p.isFragment).length;
   const fragments = parsed.filter((p) => p.isFragment).length;
 
   let html = `
-    <div class="alert alert-primary alert-dismissible show" role="alert">
+    <div class="alert alert-primary alert-dismissible show collapsed" role="alert">
+      <p id="kitTrackerLabel" href="#kitTrackerText" data-bs-toggle="collapse">
+        ${element.icon('kitTrackericon', 'kitTrackerText', collapse.collapseKitTracker)}
+        <strong>Kit Tracker</strong> — <small>${totalSets} sets, ${assembled} kits, ${fragments} fragments</small></p>
       ${element.close()}
-      <p><strong>Kit Tracker</strong> — <small>${totalSets} building sets, ${assembled} assembled kits, ${fragments} fragment stacks</small></p>`;
+      <div id="kitTrackerText" class="resize collapse ${collapse.collapseKitTracker == false ? 'show' : ''}">`;
 
   if (sortedBuildings.length === 0) {
     html += `<p class="mb-0">No upgrade/selection kits found in inventory.</p>`;
@@ -269,8 +279,11 @@ function renderKitTracker() {
     html += `</tbody></table>`;
   }
 
-  html += `</div>`;
+  html += `</div></div>`;
   kitTrackerDiv.innerHTML = html;
+  document
+    .getElementById('kitTrackerLabel')
+    .addEventListener('click', collapse.fCollapseKitTracker);
 }
 
 // ---------------------------------------------------------------------------
@@ -285,9 +298,16 @@ export function onInventoryReceived(inventoryData) {
 
 export function initKitTrackerUI() {
   kitTrackerDiv.innerHTML = `
-    <div class="alert alert-secondary alert-dismissible show" role="alert">
+    <div class="alert alert-secondary alert-dismissible show collapsed" role="alert">
+      <p id="kitTrackerLabel" href="#kitTrackerText" data-bs-toggle="collapse">
+        ${element.icon('kitTrackericon', 'kitTrackerText', collapse.collapseKitTracker)}
+        <strong>Kit Tracker</strong></p>
       ${element.close()}
-      <p><strong>Kit Tracker</strong></p>
-      <p class="mb-0 small">Waiting for inventory data — open your inventory in the game.</p>
+      <div id="kitTrackerText" class="collapse ${collapse.collapseKitTracker == false ? 'show' : ''}">
+        <p class="mb-0 small">Waiting for inventory data — open your inventory in the game.</p>
+      </div>
     </div>`;
+  document
+    .getElementById('kitTrackerLabel')
+    .addEventListener('click', collapse.fCollapseKitTracker);
 }

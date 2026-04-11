@@ -50,6 +50,7 @@ export var collapseRewards = false;
 export var collapseBonus = true;
 export var collapseCultural = true;
 export var collapseClipboard = true;
+export var collapseKitTracker = true;
 
 // export default class set {
 // 	constructor(name, state) {
@@ -166,6 +167,9 @@ export default function set(key, value) {
       break;
     case 'collapseClipboard':
       collapseClipboard = value;
+      break;
+    case 'collapseKitTracker':
+      collapseKitTracker = value;
       break;
 
     default:
@@ -398,6 +402,11 @@ export function fCollapseBonus() {
 export function fCollapseCultural() {
   collapseCultural = !collapseCultural;
   element.updateIcon('culturalicon', 'culturalText', collapseCultural);
+}
+
+export function fCollapseKitTracker() {
+  collapseKitTracker = !collapseKitTracker;
+  element.updateIcon('kitTrackericon', 'kitTrackerText', collapseKitTracker);
 }
 
 export function fCollapseClipboard() {
