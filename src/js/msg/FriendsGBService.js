@@ -33,6 +33,7 @@ import {
 import { friends } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
+import * as collapse from '../fn/collapse.js';
 import {
   isSecretDiscovered,
   tryDiscoverSecret,
@@ -59,9 +60,12 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
       `Scanned ${scanned}/${total} friends — ${profitable.length} building(s) with opportunities (Arc ${arcBonus}%)`
     : 'Scanning…';
 
-  let html = `<div class="alert alert-info alert-dismissible show" role="alert">
+  let html = `<div class="alert alert-info alert-dismissible show collapsed" role="alert">
+    <p id="friendsScanLabel" href="#friendsScanText" data-bs-toggle="collapse">
+      ${element.icon('friendsScanicon', 'friendsScanText', collapse.collapseFriendsScan)}
+      <strong>Friends GB Snipe Scanner</strong> — <small>${status}</small></p>
     ${element.close()}
-    <p><strong>Friends GB Snipe Scanner</strong> — <small>${status}</small></p>`;
+    <div id="friendsScanText" class="resize collapse ${collapse.collapseFriendsScan == false ? 'show' : ''}">`;
 
   // Flatten all spots with parent info for sorting
   const allSpots = [];
@@ -85,7 +89,8 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 
   if (dedupedSpots.length) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
-    const fpLabel = totalFP > 0 ? `Available FP: ${totalFP.toLocaleString()}` : '';
+    const fpLabel =
+      totalFP > 0 ? `Available FP: ${totalFP.toLocaleString()}` : '';
     html += `<p class="mb-1 small text-muted">${fpLabel}
       <button id="friendsCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export Excel</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
@@ -130,7 +135,7 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
     html += `<p class="mb-0">No profitable spots found at your current Arc bonus (${arcBonus}%).</p>`;
   }
 
-  html += `</div>`;
+  html += `</div></div>`;
 
   // Preserve the scan button that sits before the results area
   const btn = friendsScanDiv.querySelector('#friendsScanBtn');
@@ -145,6 +150,10 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
       exportSpotsToExcel(dedupedSpots, 'friends_gb_scan'),
     );
   }
+
+  document
+    .getElementById('friendsScanLabel')
+    .addEventListener('click', collapse.fCollapseFriendsScan);
 }
 
 // ---------------------------------------------------------------------------
@@ -201,8 +210,9 @@ async function scanAllFriendGBs() {
         const resp = gbResponses[i];
         const friend = friendList[i];
         if (!friend) continue;
-        const rows = Array.isArray(resp?.responseData)
-          ? resp.responseData.filter(
+        const rows =
+          Array.isArray(resp?.responseData) ?
+            resp.responseData.filter(
               (r) => r?.__class__ === 'GreatBuildingContributionRow',
             )
           : [];
@@ -259,12 +269,12 @@ async function scanAllFriendGBs() {
         total,
         `Fetching ${constructionPayloads.length} building details…`,
       );
-      const constructionResponse = await postChunkedBatchRequest(
-        constructionPayloads,
-      );
+      const constructionResponse =
+        await postChunkedBatchRequest(constructionPayloads);
 
-      const constructionResults = Array.isArray(constructionResponse)
-        ? constructionResponse.filter(
+      const constructionResults =
+        Array.isArray(constructionResponse) ?
+          constructionResponse.filter(
             (m) =>
               m?.requestClass === 'GreatBuildingsService' &&
               m?.requestMethod === 'getConstruction',

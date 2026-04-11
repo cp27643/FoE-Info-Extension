@@ -43,6 +43,7 @@ import { availableFP } from './ResourceService.js';
 import { hoodlist } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
+import * as collapse from '../fn/collapse.js';
 import {
   sendJsonRequestAtomic,
   sendBatchRequestAtomic,
@@ -78,9 +79,7 @@ let lastRequestTime = 0;
 async function throttle() {
   const elapsed = Date.now() - lastRequestTime;
   if (elapsed < REQUEST_THROTTLE_MS) {
-    await new Promise((res) =>
-      setTimeout(res, REQUEST_THROTTLE_MS - elapsed),
-    );
+    await new Promise((res) => setTimeout(res, REQUEST_THROTTLE_MS - elapsed));
   }
   lastRequestTime = Date.now();
 }
@@ -752,9 +751,7 @@ export async function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
   for (const entry of dedupedSpots) {
     const { spot } = entry;
     const pct =
-      entry.maxProgress > 0
-        ? (entry.currentProgress / entry.maxProgress)
-        : 0;
+      entry.maxProgress > 0 ? entry.currentProgress / entry.maxProgress : 0;
     const canAfford = totalFP > 0 && spot.lockCost <= totalFP;
 
     const row = ws.addRow([
@@ -827,9 +824,12 @@ function showScanResults(profitable, scanned, total, statusMsg) {
       `Scanned ${scanned}/${total} neighbors — ${profitable.length} building(s) with opportunities (Arc ${arcBonus}%)`
     : 'Scanning…';
 
-  let html = `<div class="alert alert-warning alert-dismissible show" role="alert">
+  let html = `<div class="alert alert-warning alert-dismissible show collapsed" role="alert">
+    <p id="hoodScanLabel" href="#hoodScanText" data-bs-toggle="collapse">
+      ${element.icon('hoodScanicon', 'hoodScanText', collapse.collapseHoodScan)}
+      <strong>Hood GB Snipe Scanner</strong> — <small>${status}</small></p>
     ${element.close()}
-    <p><strong>Hood GB Snipe Scanner</strong> — <small>${status}</small></p>`;
+    <div id="hoodScanText" class="resize collapse ${collapse.collapseHoodScan == false ? 'show' : ''}">`;
 
   // Flatten all spots with parent info for sorting
   const allSpots = [];
@@ -853,7 +853,8 @@ function showScanResults(profitable, scanned, total, statusMsg) {
 
   if (dedupedSpots.length) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
-    const fpLabel = totalFP > 0 ? ` | Available FP: ${totalFP.toLocaleString()}` : '';
+    const fpLabel =
+      totalFP > 0 ? ` | Available FP: ${totalFP.toLocaleString()}` : '';
     html += `<p class="mb-1 small text-muted">${fpLabel ? fpLabel.slice(3) : ''}
       <button id="hoodCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export Excel</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
@@ -898,7 +899,7 @@ function showScanResults(profitable, scanned, total, statusMsg) {
     html += `<p class="mb-0">No profitable spots found at your current Arc bonus (${arcBonus}%).</p>`;
   }
 
-  html += `</div>`;
+  html += `</div></div>`;
 
   // Preserve the scan button that sits before the results area
   const btn = gbScanDiv.querySelector('#gbScanBtn');
@@ -913,6 +914,10 @@ function showScanResults(profitable, scanned, total, statusMsg) {
       exportSpotsToExcel(dedupedSpots, 'hood_gb_scan'),
     );
   }
+
+  document
+    .getElementById('hoodScanLabel')
+    .addEventListener('click', collapse.fCollapseHoodScan);
 }
 
 // ---------------------------------------------------------------------------
@@ -981,8 +986,9 @@ export async function scanAllNeighborGBs() {
         const resp = gbResponses[i];
         const neighbor = neighbors[i];
         if (!neighbor) continue;
-        const rows = Array.isArray(resp?.responseData)
-          ? resp.responseData.filter(
+        const rows =
+          Array.isArray(resp?.responseData) ?
+            resp.responseData.filter(
               (r) => r?.__class__ === 'GreatBuildingContributionRow',
             )
           : [];
@@ -1043,13 +1049,13 @@ export async function scanAllNeighborGBs() {
         total,
         `Fetching ${constructionPayloads.length} building details…`,
       );
-      const constructionResponse = await postChunkedBatchRequest(
-        constructionPayloads,
-      );
+      const constructionResponse =
+        await postChunkedBatchRequest(constructionPayloads);
 
       // Match construction responses by index
-      const constructionResults = Array.isArray(constructionResponse)
-        ? constructionResponse.filter(
+      const constructionResults =
+        Array.isArray(constructionResponse) ?
+          constructionResponse.filter(
             (m) =>
               m?.requestClass === 'GreatBuildingsService' &&
               m?.requestMethod === 'getConstruction',
