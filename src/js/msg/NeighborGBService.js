@@ -714,12 +714,14 @@ export async function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
     'Blueprints',
   ]);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FF4472C4' },
-  };
   headerRow.alignment = { horizontal: 'center' };
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' },
+    };
+  });
 
   // Column widths
   ws.columns = [
