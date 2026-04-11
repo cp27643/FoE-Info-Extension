@@ -440,3 +440,133 @@ export async function sendJsonRequestAtomic(
 
   throw new Error('[requestIdTracker] Request timed out after 15s');
 }
+
+/**
+ * Sends a batch of game API requests in a single XHR from the page context.
+ *
+ * @param {Array}  payloads   Array of ServerRequest objects (requestId will be set on all).
+ * @param {object} opts
+ * @param {string} opts.gameUrl     Full game JSON endpoint (with ?h= token).
+ * @param {string} opts.clientId    client-identification header value.
+ * @param {number} opts.requestId   The requestId to stamp on every request in the batch.
+ * @param {number} [opts.timeout=30000]  Timeout in ms (default 30s for large batches).
+ *
+ * @returns {{ requestId: number, response: Array }}
+ */
+export async function sendBatchRequestAtomic(
+  payloads,
+  { gameUrl, clientId, requestId, timeout = 30000 } = {},
+) {
+  if (!gameUrl) {
+    throw new Error(
+      '[requestIdTracker] No game URL provided — has the game loaded?',
+    );
+  }
+
+  const secret = await discoverSecret();
+  const userKey = extractUserKey(gameUrl);
+
+  // Stamp requestId on every item in the batch
+  const batch = payloads.map((p) => ({
+    ...JSON.parse(JSON.stringify(p)),
+    requestId,
+  }));
+  const bodyStr = JSON.stringify(batch);
+
+  let signature = '';
+  if (secret && userKey) {
+    signature = computeSignature(userKey, secret, bodyStr);
+    console.log(
+      '[requestIdTracker] Batch requestId:',
+      requestId,
+      'items:',
+      batch.length,
+      'signature:',
+      signature,
+    );
+  } else {
+    console.warn(
+      '[requestIdTracker] Missing secret or userKey — unsigned batch!',
+    );
+  }
+
+  const callbackKey = `_foeBatch_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  const script = `(function() {
+    if (!window.__foeInfoPending) window.__foeInfoPending = {};
+
+    var bodyStr  = ${JSON.stringify(bodyStr)};
+    var gameUrl  = ${JSON.stringify(gameUrl)};
+    var clientId = ${JSON.stringify(clientId || '')};
+    var sig      = ${JSON.stringify(signature)};
+
+    if (!clientId) clientId = 'version=1.332; requiredVersion=1.332; platform=bro; platformType=html5; platformVersion=web';
+
+    console.log('[requestIdTracker:page] Sending batch requestId:', ${requestId}, 'items:', ${batch.length}, 'sig:', sig);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', gameUrl, true);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('client-identification', clientId);
+    if (sig) xhr.setRequestHeader('signature', sig);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      console.log('[requestIdTracker:page] Batch XHR done — status:', xhr.status, 'len:', (xhr.responseText||'').length);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          window.__foeInfoPending['${callbackKey}'] =
+            { requestId: ${requestId}, response: JSON.parse(xhr.responseText) };
+        } catch(e) {
+          window.__foeInfoPending['${callbackKey}'] =
+            { requestId: ${requestId}, __fetchError__: 'Bad JSON: ' + e.message };
+        }
+      } else {
+        window.__foeInfoPending['${callbackKey}'] =
+          { requestId: ${requestId}, __fetchError__: xhr.status + ' ' + xhr.statusText };
+      }
+    };
+    xhr.onerror = function() {
+      window.__foeInfoPending['${callbackKey}'] =
+        { requestId: ${requestId}, __fetchError__: 'Network error' };
+    };
+    xhr.send(bodyStr);
+    return true;
+  })()`;
+
+  await evalInPage(script);
+
+  // Poll for the async result with configurable timeout
+  const POLL_INTERVAL = 150;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    await new Promise((res) => setTimeout(res, POLL_INTERVAL));
+
+    const result = await evalInPage(
+      `(function() {
+        var r = window.__foeInfoPending && window.__foeInfoPending['${callbackKey}'];
+        if (r) { delete window.__foeInfoPending['${callbackKey}']; }
+        return r || null;
+      })()`,
+    );
+
+    if (result) {
+      console.log(
+        '[requestIdTracker] Batch result after',
+        Date.now() - startTime,
+        'ms',
+      );
+      if (result.__fetchError__) {
+        throw new Error(
+          `[requestIdTracker] Batch HTTP error: ${result.__fetchError__}`,
+        );
+      }
+      return result;
+    }
+  }
+
+  throw new Error(
+    `[requestIdTracker] Batch request timed out after ${timeout / 1000}s`,
+  );
+}

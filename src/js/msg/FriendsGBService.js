@@ -40,9 +40,9 @@ import {
 import { availableFP } from './ResourceService.js';
 import { makeSortable } from '../fn/sortableTable.js';
 import {
-  getNeighborOverview,
+  postBatchGameRequest,
   extractGBRows,
-  processGBRows,
+  calculateProfitableSpots,
   progressPct,
 } from './NeighborGBService.js';
 
@@ -50,10 +50,11 @@ import {
 // UI helpers
 // ---------------------------------------------------------------------------
 
-function showFriendsScanResults(profitable, scanned, total) {
+function showFriendsScanResults(profitable, scanned, total, statusMsg) {
   const arcBonus = City.ArcBonus ?? 90;
   const status =
-    total > 0 ?
+    statusMsg ? statusMsg
+    : total > 0 ?
       `Scanned ${scanned}/${total} friends — ${profitable.length} building(s) with opportunities (Arc ${arcBonus}%)`
     : 'Scanning…';
 
@@ -143,81 +144,176 @@ function showFriendsScanResults(profitable, scanned, total) {
 
 async function scanAllFriendGBs() {
   console.log('[FriendsGB] === SCAN BUTTON CLICKED ===');
-  console.log('[FriendsGB] friends length:', friends.length);
 
   if (!friends.length) {
-    console.warn('[FriendsGB] BAIL — friends list is empty');
     friendsScanDiv.innerHTML = `<div class="alert alert-warning">Friends list not loaded — open the game's social bar first.</div>`;
     return;
   }
 
-  // Friends use is_friend flag; filter to actual friends
-  const friendList = friends.filter(
-    (e) => e.is_friend || e.hasOwnProperty('is_friend'),
-  );
-  const total = friendList.length;
-  const profitable = [];
+  const btn = friendsScanDiv.querySelector('#friendsScanBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Scanning…';
+  }
 
-  console.log(
-    '[FriendsGB] Starting full friends scan —',
-    total,
-    'friends (filtered from',
-    friends.length,
-    'entries)',
-  );
+  try {
+    const friendList = friends.filter(
+      (e) => e.is_friend || e.hasOwnProperty('is_friend'),
+    );
+    const total = friendList.length;
+    console.log('[FriendsGB] Scanning', total, 'friends (batched)');
 
-  for (let i = 0; i < friendList.length; i++) {
-    const friend = friendList[i];
-    const playerId = friend.player_id;
-    const playerName = friend.name ?? String(playerId);
+    // Phase 1: Batch all getOtherPlayerOverview requests
+    const overviewPayloads = friendList.map((f) => ({
+      __class__: 'ServerRequest',
+      requestData: [f.player_id],
+      requestClass: 'GreatBuildingsService',
+      requestMethod: 'getOtherPlayerOverview',
+    }));
 
-    showFriendsScanResults(profitable, i, total);
+    showFriendsScanResults([], 0, total, 'Fetching friend overviews…');
+    const overviewResponse = await postBatchGameRequest(overviewPayloads);
 
-    try {
-      console.log(
-        '[FriendsGB] Scanning friend',
-        i + 1,
-        '/',
-        total,
-        ':',
-        playerName,
-        '(id:',
-        playerId,
-        ')',
+    // Parse batch response — filter to getOtherPlayerOverview results
+    const overviewResults = [];
+    if (Array.isArray(overviewResponse)) {
+      const gbResponses = overviewResponse.filter(
+        (m) =>
+          m?.requestClass === 'GreatBuildingsService' &&
+          m?.requestMethod === 'getOtherPlayerOverview',
       );
-      const overviewResponse = await getNeighborOverview(playerId);
-      const rows = extractGBRows(overviewResponse);
-      console.log('[FriendsGB] GB rows for', playerName, ':', rows.length);
-      const results = await processGBRows(rows);
+      console.log(
+        '[FriendsGB] Got',
+        gbResponses.length,
+        'overview responses from batch',
+      );
 
-      for (const r of results) {
-        if (r.profitableSpots.length) {
-          profitable.push({
-            playerName,
-            friendIndex: i + 1,
-            name: r.name,
-            level: r.level,
-            currentProgress: r.currentProgress,
-            maxProgress: r.maxProgress,
-            remaining: r.remaining,
-            spots: r.profitableSpots,
+      for (let i = 0; i < gbResponses.length; i++) {
+        const resp = gbResponses[i];
+        const friend = friendList[i];
+        if (!friend) continue;
+        const rows = Array.isArray(resp?.responseData)
+          ? resp.responseData.filter(
+              (r) => r?.__class__ === 'GreatBuildingContributionRow',
+            )
+          : [];
+        overviewResults.push({ friend, friendIndex: i, rows });
+      }
+    }
+
+    // Phase 2: Collect all GBs with active progress
+    const arcBonus = City.ArcBonus ?? 90;
+    const constructionMeta = [];
+    const constructionPayloads = [];
+
+    for (const { friend, friendIndex, rows } of overviewResults) {
+      for (const row of rows) {
+        if (
+          row?.entity_id &&
+          row?.player?.player_id &&
+          typeof row.current_progress === 'number' &&
+          row.current_progress > 0
+        ) {
+          constructionMeta.push({
+            friendIndex,
+            playerName: friend.name ?? String(friend.player_id),
+            playerId: Number(row.player.player_id),
+            entityId: Number(row.entity_id),
+            name: String(row.name ?? ''),
+            level: Number(row.level ?? 0),
+            currentProgress: Number(row.current_progress),
+            maxProgress:
+              row.max_progress != null ? Number(row.max_progress) : null,
+          });
+          constructionPayloads.push({
+            __class__: 'ServerRequest',
+            requestData: [row.entity_id, row.player.player_id],
+            requestClass: 'GreatBuildingsService',
+            requestMethod: 'getConstruction',
           });
         }
       }
-    } catch (err) {
-      console.warn('[FriendsGB] Failed scanning', playerName, ':', err.message);
     }
 
-    // Yield to avoid blocking the UI on large friend lists
-    await new Promise((res) => setTimeout(res, 50));
-  }
+    console.log(
+      '[FriendsGB] Phase 2:',
+      constructionPayloads.length,
+      'construction requests',
+    );
 
-  showFriendsScanResults(profitable, total, total);
-  console.log(
-    '[FriendsGB] Scan complete —',
-    profitable.length,
-    'profitable spots found',
-  );
+    const profitable = [];
+
+    if (constructionPayloads.length > 0) {
+      showFriendsScanResults(
+        [],
+        0,
+        total,
+        `Fetching ${constructionPayloads.length} building details…`,
+      );
+      const constructionResponse = await postBatchGameRequest(
+        constructionPayloads,
+      );
+
+      const constructionResults = Array.isArray(constructionResponse)
+        ? constructionResponse.filter(
+            (m) =>
+              m?.requestClass === 'GreatBuildingsService' &&
+              m?.requestMethod === 'getConstruction',
+          )
+        : [];
+
+      for (let i = 0; i < constructionMeta.length; i++) {
+        const meta = constructionMeta[i];
+        const resp = constructionResults[i];
+        const construction = resp?.responseData;
+
+        if (!construction || construction.__class__ === 'Error') continue;
+
+        const cp =
+          construction.state?.current_progress ??
+          construction.current_progress ??
+          meta.currentProgress;
+        const mp =
+          construction.state?.max_progress ??
+          construction.max_progress ??
+          meta.maxProgress;
+        const remaining = mp != null && cp != null ? mp - cp : null;
+
+        const rankings = construction.rankings ?? [];
+        if (!rankings.length) continue;
+
+        const profitableSpots = calculateProfitableSpots(
+          rankings,
+          remaining,
+          arcBonus,
+        );
+        if (profitableSpots.length) {
+          profitable.push({
+            playerName: meta.playerName,
+            friendIndex: meta.friendIndex + 1,
+            name: meta.name,
+            level: meta.level,
+            currentProgress: cp,
+            maxProgress: mp,
+            remaining,
+            spots: profitableSpots,
+          });
+        }
+      }
+    }
+
+    showFriendsScanResults(profitable, total, total);
+    console.log(
+      '[FriendsGB] Scan complete —',
+      profitable.length,
+      'profitable spots found (2 XHR calls)',
+    );
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Scan Friends GBs';
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

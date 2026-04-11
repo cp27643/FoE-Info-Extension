@@ -45,6 +45,7 @@ import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
 import {
   sendJsonRequestAtomic,
+  sendBatchRequestAtomic,
   isSecretDiscovered,
   tryDiscoverSecret,
 } from '../fn/requestIdTracker.js';
@@ -207,6 +208,31 @@ export async function postGBGRequest(payloadTemplate) {
       setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
       if (attempt === MAX_RETRIES) throw err;
     }
+  }
+}
+
+// POSTs a batch of game API payloads in a single XHR using the scanner ID range.
+export async function postBatchGameRequest(payloads) {
+  if (!gameJsonUrl) {
+    throw new Error(
+      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
+    );
+  }
+
+  const nextId = getNextRequestId();
+  neighborGBRequestIds.add(nextId);
+  try {
+    const result = await sendBatchRequestAtomic(payloads, {
+      gameUrl: gameJsonUrl,
+      clientId: gameRequestHeaders['client-identification'] || '',
+      requestId: nextId,
+      timeout: 30000,
+    });
+    setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
+    return result.response;
+  } catch (err) {
+    setTimeout(() => neighborGBRequestIds.delete(nextId), 30000);
+    throw err;
   }
 }
 
@@ -600,10 +626,11 @@ function showPassiveResults(results) {
 }
 
 // Renders full-scan results (all neighbors) into gbScanDiv.
-function showScanResults(profitable, scanned, total) {
+function showScanResults(profitable, scanned, total, statusMsg) {
   const arcBonus = City.ArcBonus ?? 90;
   const status =
-    total > 0 ?
+    statusMsg ? statusMsg
+    : total > 0 ?
       `Scanned ${scanned}/${total} neighbors — ${profitable.length} building(s) with opportunities (Arc ${arcBonus}%)`
     : 'Scanning…';
 
@@ -699,118 +726,201 @@ export async function onNeighborOverviewReceived(responseData) {
   return results;
 }
 
-// Scans every player in hoodlist: overview → construction → profit analysis.
-// Renders progressive results into gbScanDiv as each player is processed.
+// Scans every player in hoodlist using batched requests: one XHR for all
+// overviews, one XHR for all constructions. Renders results into gbScanDiv.
 export async function scanAllNeighborGBs() {
   console.log('[NeighborGB] === SCAN BUTTON CLICKED ===');
-  console.log('[NeighborGB] hoodlist length:', hoodlist.length);
-  if (hoodlist.length) {
-    console.log(
-      '[NeighborGB] hoodlist sample [0]:',
-      JSON.stringify(hoodlist[0]),
-    );
-  }
 
   if (!hoodlist.length) {
-    console.warn('[NeighborGB] BAIL — hoodlist is empty');
     gbScanDiv.innerHTML = `<div class="alert alert-warning">Hood list not loaded — open the game's hood/social list first.</div>`;
     return;
   }
 
-  const neighbors = hoodlist.filter(
-    (e) => e.is_neighbor || e.hasOwnProperty('is_neighbor'),
-  );
-  const total = neighbors.length;
-  const profitable = [];
-
-  console.log(
-    '[NeighborGB] Starting full hood scan —',
-    total,
-    'neighbors (filtered from',
-    hoodlist.length,
-    'hoodlist entries)',
-  );
-  if (total === 0) {
-    console.warn(
-      '[NeighborGB] No entries with is_neighbor found. hoodlist keys sample:',
-      Object.keys(hoodlist[0] || {}),
-    );
+  const btn = gbScanDiv.querySelector('#gbScanBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Scanning…';
   }
 
-  for (let i = 0; i < neighbors.length; i++) {
-    const neighbor = neighbors[i];
-    const playerId = neighbor.player_id;
-    const playerName = neighbor.name ?? String(playerId);
+  try {
+    const neighbors = hoodlist.filter(
+      (e) => e.is_neighbor || e.hasOwnProperty('is_neighbor'),
+    );
+    const total = neighbors.length;
+    console.log('[NeighborGB] Scanning', total, 'neighbors (batched)');
 
-    showScanResults(profitable, i, total);
+    // Phase 1: Batch all getOtherPlayerOverview requests
+    const overviewPayloads = neighbors.map((n) => ({
+      __class__: 'ServerRequest',
+      requestData: [n.player_id],
+      requestClass: 'GreatBuildingsService',
+      requestMethod: 'getOtherPlayerOverview',
+    }));
 
-    try {
-      console.log(
-        '[NeighborGB] Scanning neighbor',
-        i + 1,
-        '/',
-        total,
-        ':',
-        playerName,
-        '(id:',
-        playerId,
-        ')',
+    showScanResults([], 0, total, 'Fetching neighbor overviews…');
+    const overviewResponse = await postBatchGameRequest(overviewPayloads);
+
+    // Parse batch response — responses include TimeService updates interleaved
+    // with our actual responses. Match by filtering to getOtherPlayerOverview.
+    const overviewResults = [];
+    if (Array.isArray(overviewResponse)) {
+      const gbResponses = overviewResponse.filter(
+        (m) =>
+          m?.requestClass === 'GreatBuildingsService' &&
+          m?.requestMethod === 'getOtherPlayerOverview',
       );
-      const overviewResponse = await getNeighborOverview(playerId);
       console.log(
-        '[NeighborGB] overviewResponse for',
-        playerName,
-        '— type:',
-        typeof overviewResponse,
-        'is array:',
-        Array.isArray(overviewResponse),
-        'length:',
-        Array.isArray(overviewResponse) ? overviewResponse.length : 'N/A',
-      );
-      const rows = extractGBRows(overviewResponse);
-      console.log('[NeighborGB] GB rows for', playerName, ':', rows.length);
-      const results = await processGBRows(rows);
-      console.log(
-        '[NeighborGB] processGBRows results for',
-        playerName,
-        ':',
-        results.length,
+        '[NeighborGB] Got',
+        gbResponses.length,
+        'overview responses from batch of',
+        overviewResponse.length,
       );
 
-      for (const r of results) {
-        if (r.profitableSpots.length) {
-          profitable.push({
-            playerName,
-            hoodIndex: i + 1,
-            name: r.name,
-            level: r.level,
-            currentProgress: r.currentProgress,
-            maxProgress: r.maxProgress,
-            remaining: r.remaining,
-            spots: r.profitableSpots,
+      for (let i = 0; i < gbResponses.length; i++) {
+        const resp = gbResponses[i];
+        const neighbor = neighbors[i];
+        if (!neighbor) continue;
+        const rows = Array.isArray(resp?.responseData)
+          ? resp.responseData.filter(
+              (r) => r?.__class__ === 'GreatBuildingContributionRow',
+            )
+          : [];
+        overviewResults.push({
+          neighbor,
+          neighborIndex: i,
+          rows,
+        });
+      }
+    }
+
+    // Phase 2: Collect all GBs with active progress for construction lookup
+    const arcBonus = City.ArcBonus ?? 90;
+    const constructionMeta = []; // tracks which neighbor/row each request maps to
+    const constructionPayloads = [];
+
+    for (const { neighbor, neighborIndex, rows } of overviewResults) {
+      for (const row of rows) {
+        if (
+          row?.entity_id &&
+          row?.player?.player_id &&
+          typeof row.current_progress === 'number' &&
+          row.current_progress > 0
+        ) {
+          constructionMeta.push({
+            neighborIndex,
+            playerName: neighbor.name ?? String(neighbor.player_id),
+            playerId: Number(row.player.player_id),
+            entityId: Number(row.entity_id),
+            name: String(row.name ?? ''),
+            level: Number(row.level ?? 0),
+            currentProgress: Number(row.current_progress),
+            maxProgress:
+              row.max_progress != null ? Number(row.max_progress) : null,
+          });
+          constructionPayloads.push({
+            __class__: 'ServerRequest',
+            requestData: [row.entity_id, row.player.player_id],
+            requestClass: 'GreatBuildingsService',
+            requestMethod: 'getConstruction',
           });
         }
       }
-    } catch (err) {
-      console.warn(
-        '[NeighborGB] Failed scanning',
-        playerName,
-        ':',
-        err.message,
-      );
     }
 
-    // Yield to avoid blocking the UI on large hood lists
-    await new Promise((res) => setTimeout(res, 50));
-  }
+    console.log(
+      '[NeighborGB] Phase 2:',
+      constructionPayloads.length,
+      'construction requests',
+    );
 
-  // Sorting is handled in showScanResults (safe-lock first, then by profit)
-  showScanResults(profitable, total, total);
-  console.log(
-    '[NeighborGB] Scan complete —',
-    profitable.length,
-    'profitable spots found',
-  );
+    const profitable = [];
+
+    if (constructionPayloads.length > 0) {
+      showScanResults(
+        [],
+        0,
+        total,
+        `Fetching ${constructionPayloads.length} building details…`,
+      );
+      const constructionResponse = await postBatchGameRequest(
+        constructionPayloads,
+      );
+
+      // Match construction responses by index
+      const constructionResults = Array.isArray(constructionResponse)
+        ? constructionResponse.filter(
+            (m) =>
+              m?.requestClass === 'GreatBuildingsService' &&
+              m?.requestMethod === 'getConstruction',
+          )
+        : [];
+
+      console.log(
+        '[NeighborGB] Got',
+        constructionResults.length,
+        'construction responses',
+      );
+
+      for (let i = 0; i < constructionMeta.length; i++) {
+        const meta = constructionMeta[i];
+        const resp = constructionResults[i];
+        const construction = resp?.responseData;
+
+        if (!construction || construction.__class__ === 'Error') {
+          console.warn(
+            '[NeighborGB] Construction failed for',
+            meta.name,
+            ':',
+            construction?.message ?? 'no data',
+          );
+          continue;
+        }
+
+        const cp =
+          construction.state?.current_progress ??
+          construction.current_progress ??
+          meta.currentProgress;
+        const mp =
+          construction.state?.max_progress ??
+          construction.max_progress ??
+          meta.maxProgress;
+        const remaining = mp != null && cp != null ? mp - cp : null;
+
+        const rankings = construction.rankings ?? [];
+        if (!rankings.length) continue;
+
+        const profitableSpots = calculateProfitableSpots(
+          rankings,
+          remaining,
+          arcBonus,
+        );
+        if (profitableSpots.length) {
+          profitable.push({
+            playerName: meta.playerName,
+            hoodIndex: meta.neighborIndex + 1,
+            name: meta.name,
+            level: meta.level,
+            currentProgress: cp,
+            maxProgress: mp,
+            remaining,
+            spots: profitableSpots,
+          });
+        }
+      }
+    }
+
+    showScanResults(profitable, total, total);
+    console.log(
+      '[NeighborGB] Scan complete —',
+      profitable.length,
+      'profitable spots found (2 XHR calls)',
+    );
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Scan Hood GBs';
+    }
+  }
 }
 
 // Renders the "Scan Hood GBs" button and a readiness dashboard into gbScanDiv.
