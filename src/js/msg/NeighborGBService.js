@@ -237,23 +237,18 @@ export async function postBatchGameRequest(payloads) {
 }
 
 // The game server limits same-method requests to ~5 per batch XHR.
-// This sends payloads in chunks of BATCH_CHUNK_SIZE with a delay between.
+// Fire all chunks in parallel for maximum speed (game session will break).
 const BATCH_CHUNK_SIZE = 5;
-const BATCH_CHUNK_DELAY_MS = 500;
 
 export async function postChunkedBatchRequest(payloads) {
-  const allResponses = [];
+  const chunks = [];
   for (let i = 0; i < payloads.length; i += BATCH_CHUNK_SIZE) {
-    if (i > 0) {
-      await new Promise((res) => setTimeout(res, BATCH_CHUNK_DELAY_MS));
-    }
-    const chunk = payloads.slice(i, i + BATCH_CHUNK_SIZE);
-    const response = await postBatchGameRequest(chunk);
-    if (Array.isArray(response)) {
-      allResponses.push(...response);
-    }
+    chunks.push(payloads.slice(i, i + BATCH_CHUNK_SIZE));
   }
-  return allResponses;
+  const results = await Promise.all(
+    chunks.map((chunk) => postBatchGameRequest(chunk)),
+  );
+  return results.filter(Array.isArray).flat();
 }
 
 // ---------------------------------------------------------------------------
