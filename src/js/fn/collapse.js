@@ -53,6 +53,7 @@ export var collapseClipboard = true;
 export var collapseKitTracker = true;
 export var collapseHoodScan = true;
 export var collapseFriendsScan = true;
+export var collapseGuildScan = true;
 
 // export default class set {
 // 	constructor(name, state) {
@@ -178,6 +179,9 @@ export default function set(key, value) {
       break;
     case 'collapseFriendsScan':
       collapseFriendsScan = value;
+      break;
+    case 'collapseGuildScan':
+      collapseGuildScan = value;
       break;
 
     default:
@@ -425,6 +429,11 @@ export function fCollapseHoodScan() {
 export function fCollapseFriendsScan() {
   collapseFriendsScan = !collapseFriendsScan;
   element.updateIcon('friendsScanicon', 'friendsScanText', collapseFriendsScan);
+}
+
+export function fCollapseGuildScan() {
+  collapseGuildScan = !collapseGuildScan;
+  element.updateIcon('guildScanicon', 'guildScanText', collapseGuildScan);
 }
 
 export function fCollapseClipboard() {

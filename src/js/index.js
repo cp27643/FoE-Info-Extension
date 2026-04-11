@@ -59,6 +59,7 @@ import {
   neighborGBRequestIds,
 } from './msg/NeighborGBService.js';
 import { initFriendsScanUI } from './msg/FriendsGBService.js';
+import { initGuildScanUI } from './msg/GuildGBService.js';
 import {
   initGBGMonitorUI,
   onBattlegroundUpdate,
@@ -356,6 +357,10 @@ export var friendsScanDiv = document.createElement('div');
 content.appendChild(friendsScanDiv);
 friendsScanDiv.id = 'friendsScan';
 initFriendsScanUI();
+export var guildScanDiv = document.createElement('div');
+content.appendChild(guildScanDiv);
+guildScanDiv.id = 'guildScan';
+initGuildScanUI();
 export var kitTrackerDiv = document.createElement('div');
 content.appendChild(kitTrackerDiv);
 kitTrackerDiv.id = 'kitTracker';
