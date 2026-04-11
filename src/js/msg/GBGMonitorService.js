@@ -422,6 +422,7 @@ export function stopMonitoring() {
 function updateMonitorButton() {
   const btn = monitorDiv?.querySelector('#gbgMonitorBtn');
   if (!btn) return;
+  btn.disabled = false;
   btn.textContent =
     isMonitoring ? '⏹ Stop GBG Monitor' : '▶ Start GBG Monitor';
   btn.className =
