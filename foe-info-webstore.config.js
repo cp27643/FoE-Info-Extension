@@ -150,6 +150,9 @@ module.exports = {
     new CopyPlugin({
       patterns: [{ from: 'src/images/logo90.png', to: 'icons/' }],
     }),
+    new CopyPlugin({
+      patterns: [{ from: 'src/js/wsProxy.js', to: './' }],
+    }),
     new WebpackExtensionManifestPlugin({
       config: {
         base: baseManifest,
