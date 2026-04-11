@@ -44,6 +44,7 @@ import {
   extractGBRows,
   calculateProfitableSpots,
   progressPct,
+  exportSpotsToCSV,
 } from './NeighborGBService.js';
 
 // ---------------------------------------------------------------------------
@@ -85,7 +86,8 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
   if (dedupedSpots.length) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
     const fpLabel = totalFP > 0 ? `Available FP: ${totalFP.toLocaleString()}` : '';
-    html += `<p class="mb-1 small text-muted">${fpLabel}</p>`;
+    html += `<p class="mb-1 small text-muted">${fpLabel}
+      <button id="friendsCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export CSV</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
@@ -136,6 +138,13 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
   if (btn) friendsScanDiv.prepend(btn);
   const tbl = friendsScanDiv.querySelector('table');
   if (tbl) makeSortable(tbl);
+
+  const csvBtn = friendsScanDiv.querySelector('#friendsCsvBtn');
+  if (csvBtn) {
+    csvBtn.addEventListener('click', () =>
+      exportSpotsToCSV(dedupedSpots, 'friends_gb_scan'),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -687,6 +687,66 @@ function showPassiveResults(results) {
   overview.innerHTML = html;
 }
 
+// Exports scanner spots to CSV and triggers a download that opens in Excel.
+export function exportSpotsToCSV(dedupedSpots, filename = 'gb_scan') {
+  const headers = [
+    '#',
+    'Player',
+    'Building',
+    'Level',
+    'Progress',
+    'Rank',
+    'Current Holder',
+    'Lock Cost',
+    'Reward FP',
+    'Profit',
+    'ROI %',
+    'Medals',
+    'Blueprints',
+  ];
+
+  const escCSV = (v) => {
+    const s = String(v ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const rows = dedupedSpots.map((entry) => {
+    const { spot } = entry;
+    const pct =
+      entry.maxProgress > 0
+        ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
+        : '';
+    return [
+      entry.hoodIndex ?? entry.friendIndex ?? '',
+      entry.playerName,
+      entry.name,
+      entry.level,
+      `${pct}%`,
+      spot.rank,
+      spot.currentHolder,
+      spot.lockCost,
+      spot.rewardFP,
+      spot.lockProfit,
+      spot.profitPct,
+      spot.rewardMedals || 0,
+      spot.rewardBlueprints || 0,
+    ]
+      .map(escCSV)
+      .join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // Renders full-scan results (all neighbors) into gbScanDiv.
 function showScanResults(profitable, scanned, total, statusMsg) {
   const arcBonus = City.ArcBonus ?? 90;
@@ -723,7 +783,8 @@ function showScanResults(profitable, scanned, total, statusMsg) {
   if (dedupedSpots.length) {
     const totalFP = (availablePacksFP || 0) + (availableFP || 0);
     const fpLabel = totalFP > 0 ? ` | Available FP: ${totalFP.toLocaleString()}` : '';
-    html += `<p class="mb-1 small text-muted">${fpLabel ? fpLabel.slice(3) : ''}</p>`;
+    html += `<p class="mb-1 small text-muted">${fpLabel ? fpLabel.slice(3) : ''}
+      <button id="hoodCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export CSV</button></p>`;
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
@@ -774,6 +835,13 @@ function showScanResults(profitable, scanned, total, statusMsg) {
   if (btn) gbScanDiv.prepend(btn);
   const tbl = gbScanDiv.querySelector('table');
   if (tbl) makeSortable(tbl);
+
+  const csvBtn = gbScanDiv.querySelector('#hoodCsvBtn');
+  if (csvBtn) {
+    csvBtn.addEventListener('click', () =>
+      exportSpotsToCSV(dedupedSpots, 'hood_gb_scan'),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
