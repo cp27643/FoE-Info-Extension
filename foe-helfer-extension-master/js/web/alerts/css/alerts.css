@@ -1,0 +1,296 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+/**
+ * Project  foe-chrome
+ * Date     2020-03-27
+ * License  MIT
+ *
+ * @author  Tomas Vorobjov <contact@tomasvorobjov.com>
+ *
+ */
+
+#Alerts {
+    top: 15%;
+    left: 50%;
+    width: 650px;
+}
+
+#Alerts #AlertsBody .tabs, #Alerts #AlertsBody #alerts-tab-list {
+    height: 100%;
+}
+
+#Alerts #AlertsBody .scrollable{
+    height: 350px;
+    height: calc(100% - 34px);
+    overflow: hidden;
+    overflow-y: auto;
+    margin: 0;
+}
+
+#Alerts #AlertsBody .content {
+    padding: 8px;
+}
+
+#Alerts #AlertsBody .no-permission,
+#Alerts #AlertsBody .overlay-disable {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 50px 0;
+}
+#Alerts #AlertsBody .no-permission, #Alerts #AlertsBody .overlay-disable {
+    background-color: var(--black-65);
+}
+#Alerts #AlertsBody #alerts-preferences {
+    position: relative;
+}
+
+#Alerts #AlertsBody .no-permission::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 240px;
+}
+
+/* Forms */
+div.alert-popup {
+    left: 50%;
+    max-height: 550px;
+    min-height: 160px;
+    width: 650px;
+}
+
+div.alert-popup .box-inner { padding: 8px; }
+div.alert-popup .box-inner-content {
+    border: .5px solid var(--border-table-top);
+    margin-bottom: 15px;
+    box-shadow: 0 4px 3px 0 var(--black-30);
+}
+div.alert-popup .box-inner-content h3 {
+    background-color: var(--black-30);
+    box-shadow: 0 20px 12px -22px var(--table-bg-hover) inset;
+    border-bottom: 1px solid var(--text-dark);
+    color: var(--bright-color);
+    display: block;
+    font-weight: 700;
+    font-size: 90%;
+    margin: 0;
+    padding: 4px 10px;
+}
+div.alert-popup .box-inner-form {
+    padding: 10px;
+}
+
+.radio-toolbar input[type="radio"] {
+    opacity: 0;
+    position: fixed;
+    width: 0;
+}
+
+.box-inner input { box-sizing: border-box; }
+.box-inner input:focus,
+.box-inner textarea:focus {
+    outline: 3px solid var(--text-normal);
+}
+
+.box-inner input[type="text"],
+.box-inner input[type="number"],
+.box-inner input[type="datetime-local"],
+.box-inner textarea,
+.box-inner select {
+    background-color: var(--background-light);
+    color: var(--text-medium);
+    background-clip: padding-box;
+    border: 1px solid var(--text-dark);
+    line-height: 18px;
+    margin: 0 0 4px 0;
+    padding: 4px;
+}
+
+div.alert-popup #alert-expires,
+.box-inner select {
+    padding: 7px 4px;
+}
+
+.box-inner input[type="text"],
+.box-inner input[type="number"] {
+    font-size: 0.8rem;
+}
+.box-inner textarea {
+    font-size: 0.9rem;
+}
+
+
+.box-inner button,
+.box-inner input[type="text"],
+.box-inner input[type="datetime-local"],
+.box-inner select,
+.box-inner textarea {
+    width: 100%;
+    border: 1px solid var(--black);
+}
+
+.box-inner .error-text {
+    color: var(--tooltip-disabled);
+}
+
+.box-inner input[type="text"].error-box,
+.box-inner input[type="datetime-local"].error-box,
+.box-inner select.error-box
+.box-inner textarea.error-box {
+    border: 1px solid var(--hud-border-error);
+}
+
+.box-inner form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 12px;
+}
+
+.box-inner form label.block {
+    display: block;
+}
+
+.box-inner form p {
+    margin: 0;
+}
+.box-inner form p.mt--10 {
+    margin-top: -10px;
+}
+
+.box-inner .full-width {
+    grid-column: 1 / 3;
+}
+.box-inner .extra-vs-8 {
+    margin: 0 0 8px 0;
+}
+
+.box-inner button,
+.box-inner input,
+.box-inner textarea {
+    padding: 1em;
+}
+.box-inner textarea {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    resize: none;
+}
+
+.radio-toolbar label {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    vertical-align: middle;
+    user-select: none;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    background: var(--btn-bg);
+    color: var(--text-normal);
+    cursor: url('../../../../css/images/cursor_default.cur'), auto;
+    transition: color .15s ease-in-out,background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    outline: none !important;
+}
+
+.radio-toolbar input[type="radio"]:checked + label,
+.radio-toolbar input[type="radio"]:hover + label {
+    background: var(--btn-bg-active);
+	cursor: url('../../../../css/images/cursor_hover.cur'), auto;
+}
+
+.column-160 { max-width: 180px; }
+.column-200 { max-width: 200px; }
+.column-160, .column-200 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+input.hidden {
+    display: none;
+}
+
+#Alerts .icon-repeat {
+    background-image: url('../../x_img/repeat.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
+#Alerts .btn-edit {
+    background-image: url('../../../../css/images/hud/edit.png'), var(--btn-bg);
+    background-size: 13px 13px, cover;
+    background-repeat: no-repeat, repeat;
+    background-position: center;
+    width: 18px;
+}
+
+#Alerts .btn-edit:hover {
+    background-image: url('../../../../css/images/hud/edit.png'), var(--btn-bg-active);
+}
+
+#Alerts .btn-delete {
+    width: 18px;
+}
+
+#Alerts .btn-delete:hover {
+    background-image: url('../../x_img/trash.svg'), var(--btn-bg-red-active);
+}
+
+/* Preferences */
+#Alerts #alerts-preferences .item {
+    border: .5px solid var(--border-table-top);
+    margin-bottom: 15px;
+    box-shadow: 0 4px 3px 0 var(--black-30);
+    font-size: 90%;
+}
+
+#Alerts #alerts-preferences .item .title {
+    box-shadow: 0 20px 12px -22px var(--table-bg-hover) inset;
+    border-bottom: 1px solid var(--text-dark2);
+    padding: 4px 10px;
+    font-weight: 700;
+    color: var(--bright-color);
+    background-color: var(--black-30);
+}
+
+#Alerts #alerts-preferences .item .item-row {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    align-items: center;
+}
+
+#Alerts #alerts-preferences .item .item-row .description,
+#Alerts #alerts-preferences .item .item-row .value {
+    padding: 10px;
+}
+#Alerts #alerts-preferences .item .item-row .description {
+    width: 66%;
+}
+#Alerts #alerts-preferences .item .item-row .value {
+    width: 34%;
+}
+
+/* hide tabs */
+#Alerts #AlertsBody .tabs ul {
+    display: none;
+}

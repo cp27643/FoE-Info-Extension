@@ -1,0 +1,204 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+#BackgroundInfo {
+	top: 20%;
+	right: 30px;
+	width: 560px;
+	height: 450px;
+}
+
+.info-table {
+	border-spacing: 0;
+	border-collapse: separate;
+	width: 100%;
+	background-color: transparent;
+}
+
+.info-table a {
+	text-decoration: none;
+	color: inherit;
+}
+
+.info-table a:hover {
+	text-decoration: underline;
+}
+
+table.info-table:not(.no-hover) tbody tr:hover {
+	background-color: var(--table-bg-hover) !important;
+}
+
+table.info-table tr th,
+table.info-table tr td {
+	padding: 2px 5px;
+}
+
+table.info-table tr td {
+	border-top: 1px solid var(--border-table-top);
+	border-bottom: 1px solid var(--border-table-bottom);
+}
+
+#BackgroundInfo #BackgroundInfoBody {
+	overflow: auto;
+}
+
+#BackgroundInfo #BackgroundInfoBody strong {
+	color: var(--bright-color);
+}
+
+#BackgroundInfo #BackgroundInfoBody .filter-row {
+	line-height: 1rem;
+	display: flex;
+	align-items: center;
+	background-color: rgba(0,0,0, 0.5);
+	padding: 5px;
+}
+
+#BackgroundInfo #BackgroundInfoBody .filter-row span {
+	display: inline-block;
+	margin-right: 15px;
+}
+
+#BackgroundInfo #BackgroundInfoBody .filter-row span input {
+	position: relative;
+	margin: 0;
+	top: 2px;
+}
+
+#BackgroundInfo #BackgroundInfoBody .filter-row .btn-reset-box {
+	margin-left: auto;
+}
+
+#BackgroundInfo #BackgroundInfoBody .offer {
+	display: flex;
+	align-items: center;
+}
+
+#BackgroundInfo #BackgroundInfoBody .offer span {
+	margin-right: 3px;
+	width: 28px;
+	height: 28px;
+	display: inline-block;
+}
+
+#BackgroundInfo #BackgroundInfoBody .offer span.sign {
+	position: relative;
+	font-size: 1.7rem;
+	line-height: 14px;
+	width: 16px;
+}
+
+#BackgroundInfoTable td:first-child {
+	background: url('../../x_img/gbg-gray.png') center center no-repeat;
+	background-size: contain;
+	width: 30px;
+}
+
+#BackgroundInfoTable .welcome {
+	-webkit-backdrop-filter: brightness(1.1) saturate(1.1);
+	backdrop-filter: brightness(1.1) saturate(1.1);
+}
+
+#BackgroundInfoTable .welcome td:first-child {
+	background-image: url('../../../../css/images/menu/info.png');
+	background-size: 30px;
+}
+
+#BackgroundInfoTable .msg td:first-child {
+	background-image: url('../../x_img/msg.png');
+	background-size: 25px;
+}
+
+#BackgroundInfoTable .msg-important td:first-child {
+	background-image: url('../../x_img/msg-important.png');
+	background-size: 25px;
+}
+
+#BackgroundInfoTable .msg-favorite td:first-child {
+	background-image: url('../../x_img/msg-favorite.png');
+	background-size: 25px;
+}
+
+#BackgroundInfoTable .auction td:first-child {
+	background-image: url('../../x_img/ant.png');
+}
+
+#BackgroundInfoTable .gex td:first-child {
+	background-image: url('../../x_img/ge.png');
+}
+
+#BackgroundInfoTable .level td:first-child {
+	background-image: url('../../x_img/gb.png');
+}
+
+#BackgroundInfoTable .trade td:first-child {
+	background-image: url('../../x_img/trade.png');
+	background-size: 25px;
+}
+
+#BackgroundInfoTable .gbg-red td:first-child {
+	background-image: url('../../x_img/gbg-red.png');
+}
+
+#BackgroundInfoTable .gbg-green td:first-child {
+	background-image: url('../../x_img/gbg-green.png');
+}
+
+#BackgroundInfoTable .gbg-yellow td:first-child {
+	background-image: url('../../x_img/gbg-yellow.png');
+}
+
+#BackgroundInfoTable .gbg-teal td:first-child {
+	background-image: url('../../x_img/gbg-teal.png');
+}
+
+#BackgroundInfoTable .gbg-orange td:first-child {
+	background-image: url('../../x_img/gbg-orange.png');
+}
+
+#BackgroundInfoTable .gbg-blue td:first-child {
+	background-image: url('../../x_img/gbg-blue.png');
+}
+
+#BackgroundInfoTable .gbg-purple td:first-child {
+	background-image: url('../../x_img/gbg-purple.png');
+}
+
+#BackgroundInfoTable .gbg-pink td:first-child {
+	background-image: url('../../x_img/gbg-pink.png');
+}
+
+#BackgroundInfoTable .gbg-lock td:first-child {
+	background-image: url('../../x_img/gbg-lock.png');
+	background-size: 30px;
+}
+
+#BackgroundInfoTable .gbg-undefined td:first-child {
+	background-image: url('../../x_img/gbg-undefined.png');
+}
+
+#BackgroundInfoTable a[target="_blank"] {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
+#BackgroundInfoTable a[target="_blank"] svg {
+	fill: var(--text-normal);
+}
+
+input.textfilter{
+    width: 100%;
+    width: -moz-available;          /* WebKit-based browsers will ignore this. */
+    width: -webkit-fill-available;  /* Mozilla-based browsers will ignore this. */
+    width: fill-available;
+}

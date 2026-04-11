@@ -1,0 +1,106 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+#bonus-hud {
+	position: absolute;
+	right: 0;
+	z-index: 750;
+	width: 43px;
+	top: 87px;
+
+	font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+	font-size: 0.75rem;
+	font-weight: 400;
+	user-select: none;
+}
+
+#bonus-hud .hud-btn {
+	left: 5px;
+	width: 37px;
+	height: 37px;
+	background-image: none;
+	background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.3)), url('../../../../css/images/hud/box-bg.png') 0 0 no-repeat;
+	border-radius: 50% 0 0 50%;
+	border: 2px solid var(--hud-border-success);
+	border-right: none;
+	margin: 2px 0;
+	box-shadow: 1px -1px 1px var(--black-50);
+}
+
+#bonus-hud .hud-btn.hud-btn-red {
+	border-color: var(--hud-border-error);
+	opacity: 0.9;
+}
+
+#bonus-hud .hud-btn:first-child {
+	margin-top: 5px;
+}
+
+#bonus-hud .hud-btn span.icon {
+	background-size: contain;
+	background-position: center center;
+	background-repeat: no-repeat;
+	width: 29px;
+	height: 29px;
+	left: 6px;
+	top: 3px;
+}
+
+#bonus-hud .hud-btn span.bonus {
+	width: 16px;
+	height: 16px;
+	position: absolute;
+	padding: 2px;
+	bottom: 0;
+	top: unset;
+	left: 0;
+	background-color: var(--hud-counter-success);
+	border-radius: 50%;
+	line-height: 16px;
+	text-align: center;
+	box-shadow: 0 1px 1px 1px var(--black-50);
+	text-shadow: 0 1px 1px var(--black);
+	font-weight: bold;
+}
+
+#bonus-hud .tooltip {
+	width: 200px;
+}
+
+.first_strike-icon { background-image: url('../../x_img/first_strike.png'); }
+
+.spoils_of_war-icon { background-image: url('../../x_img/spoils_of_war.png'); }
+
+.diplomatic_gifts-icon { background-image: url('../../x_img/diplomatic_gifts.png'); }
+
+.missile_launch-icon { background-image: url('../../x_img/missile_launch.png'); }
+
+.aid_goods-icon { background-image: url('../../x_img/aid_goods.png'); }
+
+.donequests-icon { background-image: url('../../x_img/quest.png'); }
+
+
+.bonus-blink {
+	-webkit-animation: bgblink 1.2s;
+	-webkit-animation-iteration-count: infinite;
+}
+@-webkit-keyframes bgblink {
+	from {background-color: var(--hud-counter-success);}
+	50% {background-color: var(--text-info)}
+	to {background-color: var(--hud-counter-success);}
+}
+@keyframes bgblink {
+	from {background-color: var(--hud-counter-success);}
+	50% {background-color: var(--text-info)}
+	to {background-color: var(--hud-counter-success);}
+}

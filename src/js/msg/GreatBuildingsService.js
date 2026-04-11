@@ -341,9 +341,7 @@ export function showGreatBuldingDonation() {
         //   additional >= ceil((maxBelowFP + remaining - myFP) / 2)
         // Ties are safe because we contributed first.
         const gap = maxBelowFP + remaining - myFP;
-        const additionalNeeded = new BigNumber(
-          Math.max(0, Math.ceil(gap / 2)),
-        );
+        const additionalNeeded = new BigNumber(Math.max(0, Math.ceil(gap / 2)));
         const totalInvestment = new BigNumber(myFP).plus(additionalNeeded);
         Donation = additionalNeeded;
         Profit = RewardFP.minus(totalInvestment);

@@ -1,0 +1,422 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+#GuildMemberStat {
+    width: 750px;
+    height: 600px;
+    top: calc(50vh - 200px);
+    left: calc(50vw - 310px);
+}
+
+.text-bright {
+    color: var(--bright-color);
+}
+
+#GuildMemberStat #GuildMemberStatBody {
+    font-size: 0.9rem;
+    overflow-y: scroll;
+}
+
+#GuildMemberStatBody #GuildMemberTable,
+#GuildMemberStatBody #gmsContentWrapper {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+#GuildMemberStatBody table tr.hasdetail {
+    position: relative;
+}
+
+#GuildMemberStatBody thead th.expand-all:last-child,
+#GuildMemberStatBody table tr.hasdetail td:last-child,
+#GuildMemberStatBody table thead.hasdetail tr th:last-child {
+    background-image: url('../../../../css/images/hud/chevron-left.svg');
+    background-size: 20px 20px;
+    background-position: center right;
+    background-repeat: no-repeat;
+    width: 7px;
+}
+
+#GuildMemberStatBody thead th.expand-all.open:last-child,
+#GuildMemberStatBody table tr.hasdetail.open td:last-child,
+#GuildMemberStatBody table thead.hasdetail.open tr th:last-child {
+    background-image: url('../../../../css/images/hud/chevron-down.svg');
+    width: 7px;
+}
+
+#GuildMemberStatBody table tbody.closed {
+    display: none;
+}
+
+#GuildMemberStatBody tr th span {
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    vertical-align: bottom;
+}
+
+#GuildMemberStatBody .detail-item tr th span {
+    width: 23px;
+    height: 23px;
+    vertical-align: center;
+}
+
+#GuildMemberStatBody tr th span.activity {
+    background: url(../images/act_th.png) center no-repeat;
+    background-size: contain;
+}
+
+#GuildMemberStatBody tr th span.gex {
+    background: url(../../x_img/ge.png) center no-repeat;
+    background-size: contain;
+}
+
+#GuildMemberStatBody tr th span.gbg {
+    background: url(../../x_img/gbg-gray.png) center no-repeat;
+    background-size: contain;
+}
+
+#GuildMemberStatBody tr th span.messages {
+    background: url(../../x_img/msg.png) center no-repeat;
+    background-size: contain;
+}
+
+#GuildMemberStatBody tr th span.edit {
+    width: 16px;
+    height: 16px;
+    background: url(../images/edit.png) center no-repeat;
+    background-size: contain;
+
+}
+
+#GuildMemberStatBody tr th span.guildbuild {
+    background: transparent url(../../productions/images/productions.png) -238px 0px no-repeat;
+}
+
+#GuildMemberStatBody table th {
+    line-height: 23px;
+    cursor: pointer;
+}
+
+#GuildMemberStatBody .detail-item>table th {
+    z-index: 1;
+}
+
+#GuildMemberStatBody table tr td {
+    position: relative
+}
+
+#GuildMemberStatBody table tr td.dark {
+    background-color: var(--black-50) !important;
+}
+
+#GuildMemberStatBody table tr td.increased:after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    right: 0px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 5px 10px 5px;
+    border-color: transparent transparent var(--text-success) transparent;
+}
+
+#GuildMemberStatBody table tr td.decreased:after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    right: 0px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 5px 0px 5px;
+    border-color: #ff0000 transparent transparent transparent;
+}
+
+#GuildMemberStatBody table tr.outdated {
+    text-decoration: line-through;
+}
+
+#GuildMemberStatBody .view_notification {
+    padding: 5px 0 5px 10px;
+    line-height: 25px;
+}
+
+#GuildMemberStatBody .detail-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    clear: both;
+}
+
+#GuildMemberStatBody .detail-item {
+    flex-grow: 1;
+    min-width: 50%;
+    padding: 2px 3px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#GuildMemberStatBody .detail-item .scrollable {
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+#GuildMemberStatBody .detail-item table {
+    width: 100%;
+}
+
+#GuildMemberStatBody .detail-item.buildings {
+    max-height: 300px;
+    overflow: auto;
+}
+
+#GuildMemberStatBody img.small {
+    width: 18px;
+    height: 18px;
+}
+
+#GuildMemberStatBody .warn {
+    color: var(--bright-color);
+}
+
+#GuildMemberStatBody table tr.warning {
+    background: #ffbb004d;
+}
+
+#GuildMemberStatBody table tr.strikeout {
+    opacity: 0.8;
+}
+
+#GuildMemberStatBody table tr.strikeout td,
+#GuildMemberStatBody table tr.inactive {
+    position: relative;
+    opacity: 0.5;
+}
+
+#GuildMemberStatBody table tr.strikeout td:before {
+    content: " ";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    border-bottom: 1px solid #b7b7b7;
+    width: 100%;
+}
+
+#GuildMemberStatBody table tr.error {
+    background: #f800005c;
+}
+
+#GuildMemberStatBody .prev_score.green {
+    color: var(--text-success);
+}
+
+#GuildMemberStatBody .prev_score.red {
+    color: #ff0000db;
+}
+
+#GuildMemberTable>tbody tr.hasdetail.open td,
+#GuildErasTable>tbody tr.hasdetail.open td {
+
+    border-top: 1px solid #ca8d2d;
+    border-bottom: none;
+}
+
+#GuildMemberTable>tbody tr.hasdetail.open td:first-child,
+#GuildErasTable>tbody tr.hasdetail.open td:first-child {
+    border-left: 1px solid #ca8d2d;
+}
+
+#GuildMemberTable>tbody tr.hasdetail.open td:last-child,
+#GuildErasTable>tbody tr.hasdetail.open td:last-child {
+    border-right: 1px solid #ca8d2d;
+}
+
+#GuildMemberTable>tbody tr.detailview>td:first-child,
+#GuildErasTable>tbody tr.detailview>td:first-child {
+    border-left: 1px solid #ca8d2d;
+    border-right: 1px solid #ca8d2d;
+    border-bottom: 1px solid #ca8d2d;
+}
+
+#GuildMemberStatBody .last-update-message {
+    position: absolute;
+    bottom: 2px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.392);
+    width: auto;
+    height: auto;
+    padding: 1px 5px;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    line-height: 18px;
+    display: flex;
+}
+
+#GuildMemberStatBody .last-update-message .updaterequired {
+    color: var(--bright-color);
+}
+
+#GuildMemberStatBody .last-update-message span.icon {
+    display: block;
+    text-indent: -9999px;
+    width: 18px;
+    height: 18px;
+    background-size: 18px 18px;
+    margin-right: 5px;
+}
+
+#GuildMemberStatBody .last-update-message .icon.uptodate {
+    background: url(../images/uptodate.svg);
+
+}
+
+#GuildMemberStatBody .last-update-message .icon.updaterequired {
+    background: url(../images/update_required.svg);
+}
+
+#GuildMemberStatBody .prev_score {
+    position: relative;
+    right: 0px;
+    top: -4px;
+    font-size: 0.85em;
+    padding: 0 0 0 3px;
+    color: var(--bright-color);
+    font-weight: bold;
+    text-shadow: 0 2px 2px black, 0 1px 0 black;
+}
+
+#GuildMemberStatBody .copyable {
+    user-select: text;
+}
+
+#GuildMemberStatBody .hidden-text {
+    opacity: 0;
+    display: inline-block;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+#GuildMemberStat .btn-delete {
+    display: none;
+}
+
+#GuildMemberStat #gms-filter-input {
+    background-color: var(--background-light);
+    font-size: 1rem;
+    padding: 3px 5px;
+    background-color: var(--text-btn);
+    position: relative;
+    z-index: 1;
+}
+
+#GuildMemberStat #gms-filter-input.highlight {
+    border-color: var(--bright-color);
+    background-color: var(--bright-color);
+    color: var(--black);
+}
+
+#GuildMemberStat .activeCircle {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 6px;
+    background: var(--btn-bg-green-fallback);
+    background: var(--btn-bg-green-moz);
+    background: var(--btn-bg-green-webkit);
+    background: var(--btn-bg-green);
+}
+
+#GuildMemberStat .warningoverlay {
+    position: absolute;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: #150f09f2;
+}
+
+#GuildMemberStat .warningoverlay-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+#GuildMemberStat tr.nohover:hover {
+    background-color: var(--table-bg-odd);
+}
+
+#GuildMemberStat .sprite-35 {
+    width: 25px;
+    height: 19px;
+    vertical-align: middle;
+}
+
+#GuildMemberStat .sprite-35::before {
+    overflow: hidden;
+    position: static;
+    display: inline-block;
+}
+
+#GuildMemberStat .goods-count {
+    font-size: 0.8em;
+}
+
+#GuildMemberStat td.goods-image {
+    padding: 0;
+    width: 25px;
+    text-align: center;
+}
+
+#GuildMemberStat #TreasuryGoodsTable tbody tr td:first-child {
+    white-space: nowrap;
+}
+
+#GuildMemberStat #TreasuryGoodsTable tbody tr td.dark {
+    background-color: var(--black-50) !important;
+}
+
+#GuildMemberStat #TreasuryGoodsTable tbody tr td.detail {
+    width: 50%;
+    padding: 0;
+}
+
+#GuildMemberStat #TreasuryGoodsTable tbody tr td.detail tr:first-child td {
+    border-top: none;
+}
+
+#GuildMemberStat #TreasuryGoodsTable tbody tr td.detail tr:last-child td {
+    border-bottom: none;
+}
+
+#GuildMemberStatBody .buildinglist.hide,
+#GuildMemberStatBody .greatbuildinglist.hide {
+    display: none;
+}
+
+#GuildMemberStat .settingtitle {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 0.9em;
+    text-decoration: underline;
+}
+
+#GuildMemberStat .no_gb_member {
+    margin-top: 6px;
+}

@@ -1,0 +1,91 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+
+#eventchests {
+    top: 100px;
+    left: 48%;
+}
+
+#eventchests td.border-right {
+    border-right: 1px solid var(--border-table-bottom);
+}
+
+#eventchests td.border-left {
+    border-left: 1px solid var(--border-table-top);
+}
+
+#eventpresents {
+    top: 100px;
+    left: 48%;
+    height: 400px;
+}
+
+#eventpresentsBody {
+    overflow: auto;
+}
+
+#eventpresentsBody img {
+    width: 30px;
+}
+
+#eventpresentsBody img.visible {
+    width: auto;
+    height: 20px;
+    float: right;
+}
+
+#eventpresentsBody td.icon {
+    position: relative;
+    width: 30px;
+    vertical-align: top;
+}
+
+#eventpresentsBody .fragment {
+    position: absolute;
+    top: 18px;
+    left: 20px;
+}
+
+#eventpresentsBody .fragment img {
+    height: 18px;
+    width: auto;
+}
+
+#eventpresentsBody tr.destroyed td {
+    text-decoration: line-through;
+    background-color: var(--black-65);
+    opacity: 0.7
+}
+
+#eventpresentsBody td {
+    height: 30px;
+}
+
+#eventpresentsBody tr.visible td {
+    opacity: 1;
+    font-weight: bold;
+    color: var(--bright-color);
+}
+
+#eventpresentsBody tr.used td {
+    background-color: var(--table-bg-success);
+    color: var(--text-success);
+    font-weight: bold;
+    opacity: 0.8
+}
+
+#eventpresentsBody tr.hidden {
+    visibility: inherit;
+    display: revert;
+}

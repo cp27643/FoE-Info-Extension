@@ -570,3 +570,135 @@ export async function sendBatchRequestAtomic(
     `[requestIdTracker] Batch request timed out after ${timeout / 1000}s`,
   );
 }
+
+/**
+ * Fires many batch XHRs in parallel using a SINGLE eval to inject all of them,
+ * then polls for all results in a single eval per tick.  This avoids the
+ * thundering-herd problem that occurs when each batch polls independently.
+ *
+ * @param {Array<{ payloads: Array, requestId: number }>} batchGroups
+ * @param {object} opts
+ * @param {string} opts.gameUrl
+ * @param {string} opts.clientId
+ * @param {number} [opts.timeout=30000]
+ * @returns {Array<{ requestId: number, response?: Array, __fetchError__?: string }>}
+ */
+export async function sendParallelBatchesAtomic(
+  batchGroups,
+  { gameUrl, clientId, timeout = 30000 } = {},
+) {
+  if (!gameUrl) {
+    throw new Error(
+      '[requestIdTracker] No game URL provided — has the game loaded?',
+    );
+  }
+
+  const secret = await discoverSecret();
+  const userKey = extractUserKey(gameUrl);
+
+  // Prepare every batch: stamp requestId, compute signature, assign callback key
+  const infos = batchGroups.map(({ payloads, requestId }) => {
+    const batch = payloads.map((p) => ({
+      ...JSON.parse(JSON.stringify(p)),
+      requestId,
+    }));
+    const bodyStr = JSON.stringify(batch);
+    const signature =
+      secret && userKey ? computeSignature(userKey, secret, bodyStr) : '';
+    const callbackKey = `_foePar_${requestId}_${Math.random().toString(36).slice(2)}`;
+    return { bodyStr, signature, requestId, callbackKey };
+  });
+
+  // ── Fire ALL XHRs in one eval ──────────────────────────────────────────
+  const batchData = infos.map((b) => ({
+    body: b.bodyStr,
+    sig: b.signature,
+    key: b.callbackKey,
+    rid: b.requestId,
+  }));
+
+  const fireScript = `(function() {
+    if (!window.__foeInfoPending) window.__foeInfoPending = {};
+    var url  = ${JSON.stringify(gameUrl)};
+    var cid  = ${JSON.stringify(clientId || '')}
+      || 'version=1.332; requiredVersion=1.332; platform=bro; platformType=html5; platformVersion=web';
+    var list = ${JSON.stringify(batchData)};
+
+    list.forEach(function(b) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('client-identification', cid);
+      if (b.sig) xhr.setRequestHeader('signature', b.sig);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            window.__foeInfoPending[b.key] =
+              { requestId: b.rid, response: JSON.parse(xhr.responseText) };
+          } catch(e) {
+            window.__foeInfoPending[b.key] =
+              { requestId: b.rid, __fetchError__: 'Bad JSON: ' + e.message };
+          }
+        } else {
+          window.__foeInfoPending[b.key] =
+            { requestId: b.rid, __fetchError__: xhr.status + ' ' + xhr.statusText };
+        }
+      };
+      xhr.onerror = function() {
+        window.__foeInfoPending[b.key] =
+          { requestId: b.rid, __fetchError__: 'Network error' };
+      };
+      xhr.send(b.body);
+    });
+    return list.length;
+  })()`;
+
+  const fired = await evalInPage(fireScript);
+  console.log('[requestIdTracker] Fired', fired, 'parallel batch XHRs');
+
+  // ── Poll for ALL results in one eval per tick ──────────────────────────
+  const allKeys = infos.map((b) => b.callbackKey);
+  const collected = {};
+  const POLL_INTERVAL = 200;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeout) {
+    await new Promise((res) => setTimeout(res, POLL_INTERVAL));
+
+    const remaining = allKeys.filter((k) => !collected[k]);
+    if (remaining.length === 0) break;
+
+    const pollScript = `(function() {
+      var keys = ${JSON.stringify(remaining)};
+      var out = {};
+      keys.forEach(function(k) {
+        var r = window.__foeInfoPending && window.__foeInfoPending[k];
+        if (r) { delete window.__foeInfoPending[k]; out[k] = r; }
+      });
+      return out;
+    })()`;
+
+    const batch = await evalInPage(pollScript);
+    if (batch) Object.assign(collected, batch);
+
+    if (allKeys.every((k) => collected[k])) break;
+  }
+
+  console.log(
+    '[requestIdTracker] Parallel batches done in',
+    Date.now() - startTime,
+    'ms —',
+    Object.keys(collected).length,
+    '/',
+    allKeys.length,
+    'received',
+  );
+
+  return infos.map((b) => {
+    const r = collected[b.callbackKey];
+    if (!r) return { requestId: b.requestId, __fetchError__: 'Timeout' };
+    return r;
+  });
+}

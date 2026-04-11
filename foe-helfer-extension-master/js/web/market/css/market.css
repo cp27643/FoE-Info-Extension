@@ -1,0 +1,69 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+#Market {
+	top: 100px;
+	right: 100px;
+	width: 650px;
+	height: 500px;
+}
+
+#Market #MarketBody {
+    overflow-y: auto;
+    max-height: 2160px;
+}
+
+#Market #MarketBody table th {
+	cursor: pointer;
+	font-size: 85%;
+}
+
+#Market #MarketBody td {
+    position: relative;
+    font-size: 85%;
+    vertical-align: middle;
+}
+
+#Market #MarketBody td span.custom-option.era {
+	font-weight: bold;
+	font-size: 0.9rem;
+}
+
+#Market #MarketBody td span.custom-option:not(.era) {
+	padding-left: 20px;
+}
+
+#Market #MarketBody .filters th {
+    text-align: center;
+}
+
+#Market #MarketBody .filters select {
+    width: 160px;
+}
+
+#Market #MarketBody td.goods-image { 
+	padding: 0;
+	background-color: var(--black-50);
+}
+
+#Market #MarketBody .sprite-35 {
+	width: 25px;
+	height: 25px;
+	text-align: center;
+}
+
+#Market #MarketBody .sprite-35::before { 
+	overflow: hidden;
+	/*position: static;*/
+	display: inline-block;
+}

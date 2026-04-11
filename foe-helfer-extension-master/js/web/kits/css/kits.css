@@ -1,0 +1,257 @@
+/*
+ * **************************************************************************************
+ * Copyright (C) 2026 FoE-Helper team - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the AGPL license.
+ *
+ * See file LICENSE.md or go to
+ * https://github.com/mainIine/foe-helfer-extension/blob/master/LICENSE.md
+ * for full license details.
+ *
+ * **************************************************************************************
+ */
+
+/* Box */
+#kits {
+	top: 15%;
+	left: 20%;
+	width: 650px;
+	height: 500px;
+}
+
+#kitsBody {
+	display: flex;
+	flex-direction: column;
+}
+
+#kits #kitsBodyTopbar {
+	padding: 2px;
+	border-bottom: 1px solid var(--border-table-bottom);
+	display: flex;
+	justify-content: space-evenly;
+}
+
+#kits #kitsBodyTopbar label {
+	padding: 0 2px;
+}
+
+#kits #kitsBodyInner {
+    height: calc(100% - 28px);
+    overflow: hidden;
+    overflow-y: auto;
+    border-bottom: 1px solid var(--border-table-bottom);
+}
+
+#kits .foe-table > .item-row {
+	border-bottom: 1px solid var(--border-table-bottom);
+}
+
+#kits #kitsBodyInner :is(.filter-set-hide, .filter-item-hide, .filter-item-empty) {
+	display: none;
+}
+
+#kits #kitsBody .foe-table tr td {
+	padding: 0;
+}
+
+#kits #kitsBodyBottombar {
+	display: flex;
+	justify-content: center;
+	padding: 2px 10px;
+	background-color: rgba(0, 0, 0, 0.35);
+	border-top: 1px solid var(--border-table-top);
+}
+
+#kits #kits-triplestate-button, #kits #kits-showFavourites {
+	min-width: 150px;
+}
+
+#kits h1, #kits h2, #kits h3 {
+	color: var(--bright-color);
+	margin: 0;
+	padding: 5px;
+}
+
+#kits h1 {
+	color: var(--text-normal);
+	text-align: center;
+	background-color: var(--text-darker);
+	border-top: 1px solid var(--black-50)
+}
+
+#kits h3:only-child {
+	display: none;
+}
+
+#kits h2 {
+	background: linear-gradient(to bottom, var(--text-darker), #281207cc);
+	padding: 5px;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+#kits h2 .kitsEff {
+	margin-left: 20px;
+}
+
+#kits h2 .upgrades {
+	float: right;
+	vertical-align: middle;
+}
+
+#kits .upgrades span {
+	display: inline-flex;
+	height: 22px;
+	align-items: center;
+	color: #74c409;
+	margin-left: 4px;
+	padding: 0 4px;
+	background-color: var(--black-50);
+	border-radius: 20px;
+}
+
+#kits .upgrades span::after {
+	content: '';
+	display: inline-block;
+	width: 17px;
+	height: 22px;
+	margin-left: 2px;
+	background: url('../../x_img/upgrades.png') no-repeat left top;
+	background-size: auto 100%;
+}
+
+#kits .upgrades .base {
+	color: var(--text-normal);
+}
+
+#kits .upgrades .base::after {
+	background-position: -72px 0;
+	width: 20px;
+}
+
+#kits .upgrades .silver {
+	color: #b8b9b9;
+}
+
+#kits .upgrades .silver::after {
+	background-position: -18px 0;
+}
+
+#kits .upgrades .golden {
+	color: #fedc00;
+}
+
+#kits .upgrades .golden::after {
+	background-position: -36px 0;
+}
+
+#kits .upgrades .platinum {
+	color: #e9ceef;
+}
+
+#kits .upgrades .platinum::after {
+	background-position: -52px 0;
+}
+
+#kits .upgrades .ascended {
+	color: #ffae33e0;
+}
+
+#kits .upgrades .ascended::after {
+	background-position: -92px 0;
+}
+
+#kits .item-kits {
+	padding: 5px;
+}
+
+#kits .item-row {
+	display: flex;
+	flex-wrap: wrap;
+	width: 100%;
+}
+
+#kits .item {
+	padding: 5px;
+	font-size: 90%;
+	position: relative;
+	width: calc(25% - 1px);
+	max-width: 180px;
+	box-sizing: border-box;
+	text-align: center;
+	margin-bottom: 1px;
+}
+
+#kits .item:not(:first-child) {
+	margin-left: 1px;
+}
+
+#kits .is-missing {
+	font-style: italic;
+}
+
+#kits .image {
+	width: 90px;
+	height: 70px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0 auto 3px;
+}
+
+#kits .image img {
+	display: inline-block;
+	margin: auto;
+	text-align: center;
+	max-width: 90px;
+	max-height: 70px;
+	image-rendering: -webkit-optimize-contrast;
+}
+
+#kits .is-missing img {
+	filter: saturate(0.5) contrast(1.3);
+}
+
+#kits .fragments {
+	display: block;
+}
+
+#kits .ItemFragment {
+	height: 20px;
+}
+
+#kits .in-stock {
+	position: absolute;
+	top: 55px;
+	left: calc(50% + 20px);
+	background: var(--hud-counter-color);
+	color: var(--text-light);
+	border-radius: 10px;
+	min-width: 14px;
+	padding: 2px 4px;
+	text-align: center;
+}
+
+#kits .is-missing .in-stock {
+	background-color: var(--hud-border-error);
+}
+
+#kits .assets-header {
+	width: 100%;
+}
+
+#kits .is-missing, #kits .item.is-missing{
+	background-color: var(--table-bg-error);
+	opacity: 0.7;
+}
+
+#kits .chain-set-ico {
+	margin: -7px 0 -3px;
+}
+
+#kits .FavStar {
+	width: 1em;
+	height: 1em;
+	display: inline-block;
+    background-size: 1em;
+}

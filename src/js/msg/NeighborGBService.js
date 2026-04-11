@@ -46,6 +46,7 @@ import * as element from '../fn/AddElement';
 import {
   sendJsonRequestAtomic,
   sendBatchRequestAtomic,
+  sendParallelBatchesAtomic,
   isSecretDiscovered,
   tryDiscoverSecret,
 } from '../fn/requestIdTracker.js';
@@ -237,18 +238,78 @@ export async function postBatchGameRequest(payloads) {
 }
 
 // The game server limits same-method requests to ~5 per batch XHR.
-// Fire all chunks in parallel for maximum speed (game session will break).
+// Fire all chunks in parallel via a single eval (fast), retry any 503s.
 const BATCH_CHUNK_SIZE = 5;
 
 export async function postChunkedBatchRequest(payloads) {
+  if (!gameJsonUrl) {
+    throw new Error(
+      'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
+    );
+  }
+
+  // Split into chunks of 5
   const chunks = [];
   for (let i = 0; i < payloads.length; i += BATCH_CHUNK_SIZE) {
     chunks.push(payloads.slice(i, i + BATCH_CHUNK_SIZE));
   }
-  const results = await Promise.all(
-    chunks.map((chunk) => postBatchGameRequest(chunk)),
-  );
-  return results.filter(Array.isArray).flat();
+
+  // Assign each chunk a unique requestId
+  const batchGroups = chunks.map((chunk) => ({
+    payloads: chunk,
+    requestId: getNextRequestId(),
+  }));
+  batchGroups.forEach((g) => neighborGBRequestIds.add(g.requestId));
+
+  const results = await sendParallelBatchesAtomic(batchGroups, {
+    gameUrl: gameJsonUrl,
+    clientId: gameRequestHeaders['client-identification'] || '',
+    timeout: 30000,
+  });
+
+  // Collect successes, gather 503 failures for retry
+  const allResponses = [];
+  const retryGroups = [];
+  results.forEach((r, i) => {
+    if (r.__fetchError__) {
+      console.warn(
+        '[NeighborGB] Chunk',
+        i,
+        'failed:',
+        r.__fetchError__,
+        '— will retry',
+      );
+      // Re-assign a fresh requestId for the retry
+      const retryId = getNextRequestId();
+      neighborGBRequestIds.add(retryId);
+      retryGroups.push({ payloads: chunks[i], requestId: retryId });
+    } else if (Array.isArray(r.response)) {
+      allResponses.push(...r.response);
+    }
+  });
+
+  // Retry failed chunks (usually just 1-2 that got 503'd)
+  if (retryGroups.length > 0) {
+    console.log('[NeighborGB] Retrying', retryGroups.length, 'failed chunks');
+    await new Promise((res) => setTimeout(res, 1000));
+    const retryResults = await sendParallelBatchesAtomic(retryGroups, {
+      gameUrl: gameJsonUrl,
+      clientId: gameRequestHeaders['client-identification'] || '',
+      timeout: 30000,
+    });
+    retryResults.forEach((r) => {
+      if (Array.isArray(r.response)) allResponses.push(...r.response);
+      else console.warn('[NeighborGB] Retry still failed:', r.__fetchError__);
+    });
+  }
+
+  // Clean up requestIds after a delay
+  setTimeout(() => {
+    batchGroups.forEach((g) => neighborGBRequestIds.delete(g.requestId));
+    retryGroups.forEach((g) => neighborGBRequestIds.delete(g.requestId));
+  }, 30000);
+
+  return allResponses;
 }
 
 // ---------------------------------------------------------------------------

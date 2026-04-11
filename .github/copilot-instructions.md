@@ -54,6 +54,7 @@ Webpack uses `webpack-extension-manifest-plugin` to merge a base manifest with v
 ### Formatting
 
 Prettier enforces all style. Config is in `.prettierrc`:
+
 - Single quotes, trailing commas, 2-space indent, `experimentalTernaries` enabled.
 - Run `npm run check` to verify, `npm run format` to fix.
 - `src/js/fn/constants.js` is excluded from formatting (see `.prettierignore`).
@@ -80,6 +81,7 @@ Prettier enforces all style. Config is in `.prettierrc`:
 ### Webpack Globals
 
 Webpack `DefinePlugin` provides:
+
 - `EXT_NAME` — Package name string (`"FoE-Info-DEV"` or `"FoE-Info"`)
 - `DEV` — Boolean, true in dev builds
 - `WEBSTORE` — Boolean, true in production builds only
