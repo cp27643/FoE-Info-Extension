@@ -239,7 +239,7 @@ export async function postBatchGameRequest(payloads) {
 // The game server limits same-method requests to ~5 per batch XHR.
 // This sends payloads in chunks of BATCH_CHUNK_SIZE with a delay between.
 const BATCH_CHUNK_SIZE = 5;
-const BATCH_CHUNK_DELAY_MS = 300;
+const BATCH_CHUNK_DELAY_MS = 500;
 
 export async function postChunkedBatchRequest(payloads) {
   const allResponses = [];
