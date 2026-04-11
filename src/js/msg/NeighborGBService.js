@@ -688,10 +688,17 @@ function showPassiveResults(results) {
 }
 
 // Exports scanner spots to a formatted .xlsx and triggers a download.
-export function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
-  const XLSX = require('xlsx');
+export async function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
+  const ExcelJS = require('exceljs');
+  const totalFP =
+    (typeof availablePacksFP === 'number' ? availablePacksFP : 0) +
+    (typeof availableFP === 'number' ? availableFP : 0);
 
-  const headers = [
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('GB Scan');
+
+  // Header row
+  const headerRow = ws.addRow([
     '#',
     'Player',
     'Building',
@@ -705,20 +712,55 @@ export function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
     'ROI %',
     'Medals',
     'Blueprints',
+  ]);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4472C4' },
+  };
+  headerRow.alignment = { horizontal: 'center' };
+
+  // Column widths
+  ws.columns = [
+    { width: 5 },
+    { width: 20 },
+    { width: 24 },
+    { width: 7 },
+    { width: 10 },
+    { width: 7 },
+    { width: 20 },
+    { width: 12 },
+    { width: 11 },
+    { width: 10 },
+    { width: 9 },
+    { width: 9 },
+    { width: 11 },
   ];
 
-  const rows = dedupedSpots.map((entry) => {
+  const greenFont = { color: { argb: 'FF198754' } };
+  const greenBoldFont = { bold: true, color: { argb: 'FF198754' } };
+  const redFont = { color: { argb: 'FFDC3545' } };
+  const grayFill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE9ECEF' },
+  };
+
+  for (const entry of dedupedSpots) {
     const { spot } = entry;
     const pct =
       entry.maxProgress > 0
-        ? Math.round((entry.currentProgress / entry.maxProgress) * 100)
+        ? (entry.currentProgress / entry.maxProgress)
         : 0;
-    return [
+    const canAfford = totalFP > 0 && spot.lockCost <= totalFP;
+
+    const row = ws.addRow([
       entry.hoodIndex ?? entry.friendIndex ?? '',
       entry.playerName,
-      entry.name,
+      `${entry.name} Lv${entry.level}`,
       entry.level,
-      pct / 100,
+      pct,
       spot.rank,
       spot.currentHolder,
       spot.lockCost,
@@ -727,43 +769,51 @@ export function exportSpotsToExcel(dedupedSpots, filename = 'gb_scan') {
       spot.profitPct / 100,
       spot.rewardMedals || 0,
       spot.rewardBlueprints || 0,
-    ];
-  });
+    ]);
 
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    // Progress column as percentage
+    row.getCell(5).numFmt = '0%';
+    // ROI column as percentage
+    row.getCell(11).numFmt = '0%';
 
-  // Column widths
-  ws['!cols'] = [
-    { wch: 4 },
-    { wch: 18 },
-    { wch: 22 },
-    { wch: 6 },
-    { wch: 10 },
-    { wch: 6 },
-    { wch: 18 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 8 },
-    { wch: 8 },
-    { wch: 10 },
-  ];
+    // Lock Cost coloring: green+bold if affordable, red if not
+    if (totalFP > 0) {
+      row.getCell(8).font = canAfford ? greenBoldFont : redFont;
+    }
 
-  // Format Progress column (E) as percentage and ROI column (K) as percentage
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let r = range.s.r + 1; r <= range.e.r; r++) {
-    const progressCell = ws[XLSX.utils.encode_cell({ r, c: 4 })];
-    if (progressCell) progressCell.z = '0%';
-    const roiCell = ws[XLSX.utils.encode_cell({ r, c: 10 })];
-    if (roiCell) roiCell.z = '0%';
+    // Profit always green
+    row.getCell(10).font = greenFont;
+
+    // Gray out entire row if can't afford
+    if (totalFP > 0 && !canAfford) {
+      row.eachCell((cell) => {
+        cell.fill = grayFill;
+      });
+      // Re-apply red on lock cost after fill override
+      row.getCell(8).font = redFont;
+    }
   }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'GB Scan');
-  XLSX.writeFile(
-    wb,
-    `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`,
-  );
+  // Auto-filter on header row
+  ws.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: ws.rowCount, column: 13 },
+  };
+
+  // Freeze header row
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+  // Write and download
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Renders full-scan results (all neighbors) into gbScanDiv.

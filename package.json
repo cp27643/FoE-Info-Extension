@@ -7,12 +7,12 @@
     "bignumber.js": "^9.1.2",
     "bootstrap": "^5.3.3",
     "dayjs": "^1.11.13",
+    "exceljs": "^4.4.0",
     "jquery": "^3.7.1",
     "sass": "^1.85.0",
     "sass-loader": "^16.0.5",
     "webextension-polyfill": "^0.12.0",
-    "webhook-discord": "^3.7.8",
-    "xlsx": "^0.18.5"
+    "webhook-discord": "^3.7.8"
   },
   "license": "",
   "repository": "",
