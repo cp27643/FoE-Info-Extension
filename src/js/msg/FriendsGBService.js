@@ -160,6 +160,157 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 // Core scan
 // ---------------------------------------------------------------------------
 
+// Core scan data function — returns { profitable, total } without rendering.
+export async function scanFriendsData(onProgress) {
+  const friendList = friends.filter(
+    (e) => e.is_friend || e.hasOwnProperty('is_friend'),
+  );
+  const total = friendList.length;
+  console.log('[FriendsGB] Scanning', total, 'friends (batched)');
+
+  const overviewPayloads = friendList.map((f) => ({
+    __class__: 'ServerRequest',
+    requestData: [f.player_id],
+    requestClass: 'GreatBuildingsService',
+    requestMethod: 'getOtherPlayerOverview',
+  }));
+
+  if (onProgress) onProgress('Fetching friend overviews…');
+  const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
+
+  const overviewResults = [];
+  if (Array.isArray(overviewResponse)) {
+    const gbResponses = overviewResponse.filter(
+      (m) =>
+        m?.requestClass === 'GreatBuildingsService' &&
+        m?.requestMethod === 'getOtherPlayerOverview',
+    );
+    console.log(
+      '[FriendsGB] Got',
+      gbResponses.length,
+      'overview responses from batch',
+    );
+
+    for (let i = 0; i < gbResponses.length; i++) {
+      const resp = gbResponses[i];
+      const friend = friendList[i];
+      if (!friend) continue;
+      const rows =
+        Array.isArray(resp?.responseData) ?
+          resp.responseData.filter(
+            (r) => r?.__class__ === 'GreatBuildingContributionRow',
+          )
+        : [];
+      overviewResults.push({ friend, friendIndex: i, rows });
+    }
+  }
+
+  const arcBonus = City.ArcBonus ?? 90;
+  const constructionMeta = [];
+  const constructionPayloads = [];
+
+  for (const { friend, friendIndex, rows } of overviewResults) {
+    for (const row of rows) {
+      if (
+        row?.entity_id &&
+        row?.player?.player_id &&
+        typeof row.current_progress === 'number' &&
+        row.current_progress > 0
+      ) {
+        constructionMeta.push({
+          friendIndex,
+          playerName: friend.name ?? String(friend.player_id),
+          playerId: Number(row.player.player_id),
+          entityId: Number(row.entity_id),
+          name: String(row.name ?? ''),
+          level: Number(row.level ?? 0),
+          currentProgress: Number(row.current_progress),
+          maxProgress:
+            row.max_progress != null ? Number(row.max_progress) : null,
+        });
+        constructionPayloads.push({
+          __class__: 'ServerRequest',
+          requestData: [row.entity_id, row.player.player_id],
+          requestClass: 'GreatBuildingsService',
+          requestMethod: 'getConstruction',
+        });
+      }
+    }
+  }
+
+  console.log(
+    '[FriendsGB] Phase 2:',
+    constructionPayloads.length,
+    'construction requests',
+  );
+
+  const profitable = [];
+
+  if (constructionPayloads.length > 0) {
+    if (onProgress)
+      onProgress(
+        `Fetching ${constructionPayloads.length} building details…`,
+      );
+    const constructionResponse =
+      await postChunkedBatchRequest(constructionPayloads);
+
+    const constructionResults =
+      Array.isArray(constructionResponse) ?
+        constructionResponse.filter(
+          (m) =>
+            m?.requestClass === 'GreatBuildingsService' &&
+            m?.requestMethod === 'getConstruction',
+        )
+      : [];
+
+    for (let i = 0; i < constructionMeta.length; i++) {
+      const meta = constructionMeta[i];
+      const resp = constructionResults[i];
+      const construction = resp?.responseData;
+
+      if (!construction || construction.__class__ === 'Error') continue;
+
+      const cp =
+        construction.state?.current_progress ??
+        construction.current_progress ??
+        meta.currentProgress;
+      const mp =
+        construction.state?.max_progress ??
+        construction.max_progress ??
+        meta.maxProgress;
+      const remaining = mp != null && cp != null ? mp - cp : null;
+
+      const rankings = construction.rankings ?? [];
+      if (!rankings.length) continue;
+
+      const profitableSpots = calculateProfitableSpots(
+        rankings,
+        remaining,
+        arcBonus,
+      );
+      if (profitableSpots.length) {
+        profitable.push({
+          playerName: meta.playerName,
+          friendIndex: meta.friendIndex + 1,
+          name: meta.name,
+          level: meta.level,
+          currentProgress: cp,
+          maxProgress: mp,
+          remaining,
+          spots: profitableSpots,
+        });
+      }
+    }
+  }
+
+  console.log(
+    '[FriendsGB] Scan complete —',
+    profitable.length,
+    'profitable spots found',
+  );
+  return { profitable, total };
+}
+
 async function scanAllFriendGBs() {
   console.log('[FriendsGB] === SCAN BUTTON CLICKED ===');
 
@@ -175,152 +326,9 @@ async function scanAllFriendGBs() {
   }
 
   try {
-    const friendList = friends.filter(
-      (e) => e.is_friend || e.hasOwnProperty('is_friend'),
+    const { profitable, total } = await scanFriendsData((msg) =>
+      showFriendsScanResults([], 0, total ?? 0, msg),
     );
-    const total = friendList.length;
-    console.log('[FriendsGB] Scanning', total, 'friends (batched)');
-
-    // Phase 1: Batch all getOtherPlayerOverview requests
-    const overviewPayloads = friendList.map((f) => ({
-      __class__: 'ServerRequest',
-      requestData: [f.player_id],
-      requestClass: 'GreatBuildingsService',
-      requestMethod: 'getOtherPlayerOverview',
-    }));
-
-    showFriendsScanResults([], 0, total, 'Fetching friend overviews…');
-    const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
-
-    // Parse batch response — filter to getOtherPlayerOverview results
-    const overviewResults = [];
-    if (Array.isArray(overviewResponse)) {
-      const gbResponses = overviewResponse.filter(
-        (m) =>
-          m?.requestClass === 'GreatBuildingsService' &&
-          m?.requestMethod === 'getOtherPlayerOverview',
-      );
-      console.log(
-        '[FriendsGB] Got',
-        gbResponses.length,
-        'overview responses from batch',
-      );
-
-      for (let i = 0; i < gbResponses.length; i++) {
-        const resp = gbResponses[i];
-        const friend = friendList[i];
-        if (!friend) continue;
-        const rows =
-          Array.isArray(resp?.responseData) ?
-            resp.responseData.filter(
-              (r) => r?.__class__ === 'GreatBuildingContributionRow',
-            )
-          : [];
-        overviewResults.push({ friend, friendIndex: i, rows });
-      }
-    }
-
-    // Phase 2: Collect all GBs with active progress
-    const arcBonus = City.ArcBonus ?? 90;
-    const constructionMeta = [];
-    const constructionPayloads = [];
-
-    for (const { friend, friendIndex, rows } of overviewResults) {
-      for (const row of rows) {
-        if (
-          row?.entity_id &&
-          row?.player?.player_id &&
-          typeof row.current_progress === 'number' &&
-          row.current_progress > 0
-        ) {
-          constructionMeta.push({
-            friendIndex,
-            playerName: friend.name ?? String(friend.player_id),
-            playerId: Number(row.player.player_id),
-            entityId: Number(row.entity_id),
-            name: String(row.name ?? ''),
-            level: Number(row.level ?? 0),
-            currentProgress: Number(row.current_progress),
-            maxProgress:
-              row.max_progress != null ? Number(row.max_progress) : null,
-          });
-          constructionPayloads.push({
-            __class__: 'ServerRequest',
-            requestData: [row.entity_id, row.player.player_id],
-            requestClass: 'GreatBuildingsService',
-            requestMethod: 'getConstruction',
-          });
-        }
-      }
-    }
-
-    console.log(
-      '[FriendsGB] Phase 2:',
-      constructionPayloads.length,
-      'construction requests',
-    );
-
-    const profitable = [];
-
-    if (constructionPayloads.length > 0) {
-      showFriendsScanResults(
-        [],
-        0,
-        total,
-        `Fetching ${constructionPayloads.length} building details…`,
-      );
-      const constructionResponse =
-        await postChunkedBatchRequest(constructionPayloads);
-
-      const constructionResults =
-        Array.isArray(constructionResponse) ?
-          constructionResponse.filter(
-            (m) =>
-              m?.requestClass === 'GreatBuildingsService' &&
-              m?.requestMethod === 'getConstruction',
-          )
-        : [];
-
-      for (let i = 0; i < constructionMeta.length; i++) {
-        const meta = constructionMeta[i];
-        const resp = constructionResults[i];
-        const construction = resp?.responseData;
-
-        if (!construction || construction.__class__ === 'Error') continue;
-
-        const cp =
-          construction.state?.current_progress ??
-          construction.current_progress ??
-          meta.currentProgress;
-        const mp =
-          construction.state?.max_progress ??
-          construction.max_progress ??
-          meta.maxProgress;
-        const remaining = mp != null && cp != null ? mp - cp : null;
-
-        const rankings = construction.rankings ?? [];
-        if (!rankings.length) continue;
-
-        const profitableSpots = calculateProfitableSpots(
-          rankings,
-          remaining,
-          arcBonus,
-        );
-        if (profitableSpots.length) {
-          profitable.push({
-            playerName: meta.playerName,
-            friendIndex: meta.friendIndex + 1,
-            name: meta.name,
-            level: meta.level,
-            currentProgress: cp,
-            maxProgress: mp,
-            remaining,
-            spots: profitableSpots,
-          });
-        }
-      }
-    }
-
     showFriendsScanResults(profitable, total, total);
     console.log(
       '[FriendsGB] Scan complete —',

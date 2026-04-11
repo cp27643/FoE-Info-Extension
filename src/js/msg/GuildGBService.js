@@ -95,7 +95,8 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const baseReward = rewards[index];
 
     // 1.9 price: the break-even contribution at 1.9× multiplier
-    const threadPrice = Math.floor(baseReward * THREAD_MULTIPLIER);
+    // Game rounds rewards, so use Math.round to match
+    const threadPrice = Math.round(baseReward * THREAD_MULTIPLIER);
 
     // What's currently in this rank
     const currentFP = Top[index];
@@ -108,6 +109,21 @@ function calculate19Spots(rankings, remaining, arcBonus) {
 
     // If remaining FP on the building < what's needed, skip (can't fill)
     if (remainingFP > 0 && fpNeeded > remainingFP) continue;
+
+    // Safety check: the 1.9 price must actually lock the position.
+    // Use the same lock formula as the snipe scanner to verify no one
+    // below can bump us after we contribute.
+    let maxBelowFP = 0;
+    for (let k = index; k < 6; k++) {
+      if (myRank > 0 && k === myRank - 1) continue;
+      if ((Top[k] || 0) > maxBelowFP) maxBelowFP = Top[k] || 0;
+    }
+    const lockFromThreat = Math.ceil((maxBelowFP + remainingFP + myFP) / 2);
+    const lockToBeat = myRank === rank ? 0 : currentFP + 1;
+    const lockCost = Math.max(lockFromThreat, lockToBeat);
+
+    // Skip if the 1.9 price doesn't secure the position
+    if (threadPrice < lockCost) continue;
 
     const isVacant = !rankings?.find(
       (p) =>
@@ -382,6 +398,151 @@ async function exportGuild19ToExcel(dedupedSpots, filename) {
 // Core scan
 // ---------------------------------------------------------------------------
 
+// Core scan data function — returns { profitable, total } without rendering.
+export async function scanGuildData(onProgress) {
+  const memberList = guildMembers.filter(
+    (e) => e.is_guild_member || e.hasOwnProperty('is_guild_member'),
+  );
+  const total = memberList.length;
+  console.log('[GuildGB] Scanning', total, 'guild members (batched)');
+
+  const overviewPayloads = memberList.map((m) => ({
+    __class__: 'ServerRequest',
+    requestData: [m.player_id],
+    requestClass: 'GreatBuildingsService',
+    requestMethod: 'getOtherPlayerOverview',
+  }));
+
+  if (onProgress) onProgress('Fetching guild member overviews…');
+  const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
+
+  const overviewResults = [];
+  if (Array.isArray(overviewResponse)) {
+    const gbResponses = overviewResponse.filter(
+      (m) =>
+        m?.requestClass === 'GreatBuildingsService' &&
+        m?.requestMethod === 'getOtherPlayerOverview',
+    );
+    console.log(
+      '[GuildGB] Got',
+      gbResponses.length,
+      'overview responses from batch',
+    );
+
+    for (let i = 0; i < gbResponses.length; i++) {
+      const resp = gbResponses[i];
+      const member = memberList[i];
+      if (!member) continue;
+      const rows =
+        Array.isArray(resp?.responseData) ?
+          resp.responseData.filter(
+            (r) => r?.__class__ === 'GreatBuildingContributionRow',
+          )
+        : [];
+      overviewResults.push({ member, memberIndex: i, rows });
+    }
+  }
+
+  const arcBonus = City.ArcBonus ?? 90;
+  const constructionMeta = [];
+  const constructionPayloads = [];
+
+  for (const { member, memberIndex, rows } of overviewResults) {
+    for (const row of rows) {
+      if (
+        row?.entity_id &&
+        row?.player?.player_id &&
+        typeof row.current_progress === 'number' &&
+        row.current_progress > 0
+      ) {
+        constructionMeta.push({
+          memberIndex,
+          playerName: member.name ?? String(member.player_id),
+          playerId: Number(row.player.player_id),
+          entityId: Number(row.entity_id),
+          name: String(row.name ?? ''),
+          level: Number(row.level ?? 0),
+          currentProgress: Number(row.current_progress),
+          maxProgress:
+            row.max_progress != null ? Number(row.max_progress) : null,
+        });
+        constructionPayloads.push({
+          __class__: 'ServerRequest',
+          requestData: [row.entity_id, row.player.player_id],
+          requestClass: 'GreatBuildingsService',
+          requestMethod: 'getConstruction',
+        });
+      }
+    }
+  }
+
+  console.log(
+    '[GuildGB] Phase 2:',
+    constructionPayloads.length,
+    'construction requests',
+  );
+
+  const profitable = [];
+
+  if (constructionPayloads.length > 0) {
+    if (onProgress)
+      onProgress(`Fetching ${constructionPayloads.length} building details…`);
+    const constructionResponse =
+      await postChunkedBatchRequest(constructionPayloads);
+
+    const constructionResults =
+      Array.isArray(constructionResponse) ?
+        constructionResponse.filter(
+          (m) =>
+            m?.requestClass === 'GreatBuildingsService' &&
+            m?.requestMethod === 'getConstruction',
+        )
+      : [];
+
+    for (let i = 0; i < constructionMeta.length; i++) {
+      const meta = constructionMeta[i];
+      const resp = constructionResults[i];
+      const construction = resp?.responseData;
+
+      if (!construction || construction.__class__ === 'Error') continue;
+
+      const cp =
+        construction.state?.current_progress ??
+        construction.current_progress ??
+        meta.currentProgress;
+      const mp =
+        construction.state?.max_progress ??
+        construction.max_progress ??
+        meta.maxProgress;
+      const remaining = mp != null && cp != null ? mp - cp : null;
+
+      const rankings = construction.rankings ?? [];
+      if (!rankings.length) continue;
+
+      const spots = calculate19Spots(rankings, remaining, arcBonus);
+      if (spots.length) {
+        profitable.push({
+          playerName: meta.playerName,
+          guildIndex: meta.memberIndex + 1,
+          name: meta.name,
+          level: meta.level,
+          currentProgress: cp,
+          maxProgress: mp,
+          remaining,
+          spots,
+        });
+      }
+    }
+  }
+
+  console.log(
+    '[GuildGB] Scan complete —',
+    profitable.length,
+    'buildings with 1.9 opportunities found',
+  );
+  return { profitable, total };
+}
+
 async function scanAllGuildGBs() {
   console.log('[GuildGB] === SCAN BUTTON CLICKED ===');
 
@@ -397,148 +558,9 @@ async function scanAllGuildGBs() {
   }
 
   try {
-    const memberList = guildMembers.filter(
-      (e) => e.is_guild_member || e.hasOwnProperty('is_guild_member'),
+    const { profitable, total } = await scanGuildData((msg) =>
+      showGuildScanResults([], 0, total ?? 0, msg),
     );
-    const total = memberList.length;
-    console.log('[GuildGB] Scanning', total, 'guild members (batched)');
-
-    // Phase 1: Batch all getOtherPlayerOverview requests
-    const overviewPayloads = memberList.map((m) => ({
-      __class__: 'ServerRequest',
-      requestData: [m.player_id],
-      requestClass: 'GreatBuildingsService',
-      requestMethod: 'getOtherPlayerOverview',
-    }));
-
-    showGuildScanResults([], 0, total, 'Fetching guild member overviews…');
-    const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
-
-    // Parse batch response
-    const overviewResults = [];
-    if (Array.isArray(overviewResponse)) {
-      const gbResponses = overviewResponse.filter(
-        (m) =>
-          m?.requestClass === 'GreatBuildingsService' &&
-          m?.requestMethod === 'getOtherPlayerOverview',
-      );
-      console.log(
-        '[GuildGB] Got',
-        gbResponses.length,
-        'overview responses from batch',
-      );
-
-      for (let i = 0; i < gbResponses.length; i++) {
-        const resp = gbResponses[i];
-        const member = memberList[i];
-        if (!member) continue;
-        const rows =
-          Array.isArray(resp?.responseData) ?
-            resp.responseData.filter(
-              (r) => r?.__class__ === 'GreatBuildingContributionRow',
-            )
-          : [];
-        overviewResults.push({ member, memberIndex: i, rows });
-      }
-    }
-
-    // Phase 2: Collect all GBs with active progress
-    const arcBonus = City.ArcBonus ?? 90;
-    const constructionMeta = [];
-    const constructionPayloads = [];
-
-    for (const { member, memberIndex, rows } of overviewResults) {
-      for (const row of rows) {
-        if (
-          row?.entity_id &&
-          row?.player?.player_id &&
-          typeof row.current_progress === 'number' &&
-          row.current_progress > 0
-        ) {
-          constructionMeta.push({
-            memberIndex,
-            playerName: member.name ?? String(member.player_id),
-            playerId: Number(row.player.player_id),
-            entityId: Number(row.entity_id),
-            name: String(row.name ?? ''),
-            level: Number(row.level ?? 0),
-            currentProgress: Number(row.current_progress),
-            maxProgress:
-              row.max_progress != null ? Number(row.max_progress) : null,
-          });
-          constructionPayloads.push({
-            __class__: 'ServerRequest',
-            requestData: [row.entity_id, row.player.player_id],
-            requestClass: 'GreatBuildingsService',
-            requestMethod: 'getConstruction',
-          });
-        }
-      }
-    }
-
-    console.log(
-      '[GuildGB] Phase 2:',
-      constructionPayloads.length,
-      'construction requests',
-    );
-
-    const profitable = [];
-
-    if (constructionPayloads.length > 0) {
-      showGuildScanResults(
-        [],
-        0,
-        total,
-        `Fetching ${constructionPayloads.length} building details…`,
-      );
-      const constructionResponse =
-        await postChunkedBatchRequest(constructionPayloads);
-
-      const constructionResults =
-        Array.isArray(constructionResponse) ?
-          constructionResponse.filter(
-            (m) =>
-              m?.requestClass === 'GreatBuildingsService' &&
-              m?.requestMethod === 'getConstruction',
-          )
-        : [];
-
-      for (let i = 0; i < constructionMeta.length; i++) {
-        const meta = constructionMeta[i];
-        const resp = constructionResults[i];
-        const construction = resp?.responseData;
-
-        if (!construction || construction.__class__ === 'Error') continue;
-
-        const cp =
-          construction.state?.current_progress ??
-          construction.current_progress ??
-          meta.currentProgress;
-        const mp =
-          construction.state?.max_progress ??
-          construction.max_progress ??
-          meta.maxProgress;
-        const remaining = mp != null && cp != null ? mp - cp : null;
-
-        const rankings = construction.rankings ?? [];
-        if (!rankings.length) continue;
-
-        const spots = calculate19Spots(rankings, remaining, arcBonus);
-        if (spots.length) {
-          profitable.push({
-            playerName: meta.playerName,
-            guildIndex: meta.memberIndex + 1,
-            name: meta.name,
-            level: meta.level,
-            currentProgress: cp,
-            maxProgress: mp,
-            remaining,
-            spots,
-          });
-        }
-      }
-    }
-
     showGuildScanResults(profitable, total, total);
     console.log(
       '[GuildGB] Scan complete —',
