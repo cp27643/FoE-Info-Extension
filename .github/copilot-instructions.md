@@ -33,8 +33,10 @@ Chrome/Firefox browser extension (Manifest V3) for Forge of Empires. It injects 
 ### Key Directories
 
 - `src/js/msg/` — One service module per game system. Each exports functions that accept raw game API response objects and render results into the panel. Key modules:
-  - `NeighborGBService.js` — Hood GB scanner, wave-based parallel transport (`postChunkedBatchRequest`), Excel export (`exportSpotsToExcel`)
+  - `NeighborGBService.js` — Hood GB scanner, wave-based parallel transport (`postChunkedBatchRequest`), snipe profit calculation (`calculateProfitableSpots`), Excel export (`exportSpotsToExcel`)
   - `FriendsGBService.js` — Friends GB scanner (imports shared transport + export from NeighborGBService)
+  - `GuildGBService.js` — Guild GB 1.9 scanner (break-even calculator with near-completion snipe detection, own Excel export)
+  - `ScanAllService.js` — Unified "Scan All" scanner (runs hood/friends/guild sequentially, normalizes results into one table with progress bar)
   - `GBGMonitorService.js` — GBG passive WebSocket monitor
   - `KitTrackerService.js` — Inventory upgrade kit tracker (parses kits by building set and tier)
 - `src/js/fn/` — Shared utilities:
@@ -118,11 +120,40 @@ jQuery i18n (`@wikimedia/jquery.i18n`). Strings defined in `src/i18n/*.json`. Us
 
 ### Excel Export
 
-Both GB scanners support exporting results to `.xlsx` using the `exceljs` npm package. `exportSpotsToExcel()` in `NeighborGBService.js` creates a formatted workbook with colored headers, conditional cell formatting (green/red for affordability), auto-filter, and frozen header row. The Friends scanner imports and reuses this function.
+All GB scanners (hood, friends, guild, scan all) support exporting results to `.xlsx` using the `exceljs` npm package. `exportSpotsToExcel()` in `NeighborGBService.js` creates a formatted workbook with colored headers, conditional cell formatting (green/red for affordability), auto-filter, and frozen header row. The Friends scanner imports and reuses this function. Guild and Scan All have their own export functions with source-specific columns. Important: use `row.eachCell()` for scoped fills — row-level `.fill` bleeds to all columns.
 
 ### Kit Tracker
 
 `KitTrackerService.js` intercepts `InventoryService.getItems` and parses all upgrade/selection kit items from the player's inventory. It groups kits by building name (stripping tier suffixes like "Golden Upgrade Kit" and flavor prefixes like "Mystic", "Enchanted", etc.) and displays a collapsible table showing which tiers (base/silver/golden/platinum) the player has assembled kits or fragments for.
+
+### Scanner Architecture
+
+All three GB scanners (hood, friends, guild) follow a common refactored pattern:
+
+1. **Data function** — Each scanner exports a `scanXxxData(onProgress)` function that returns `{ profitable, total }` without rendering. The `onProgress` callback receives status message strings for progress updates.
+2. **Render function** — A separate `showXxxResults()` function takes the profitable spots array and renders the HTML table with collapse, sorting, and Excel export.
+3. **Button handler** — A thin wrapper that calls the data function then the render function.
+4. **Scan All integration** — `ScanAllService.js` calls the data functions directly, normalizes the different spot formats into unified rows, and renders a combined table.
+
+### Scan All (ScanAllService.js)
+
+Runs hood → friends → guild scans sequentially, merging results into one sortable table with color-coded source badges (Hood=yellow, Friends=blue, Guild=green).
+
+- **Progress bar**: Bootstrap animated striped progress bar with step labels. Uses a lightweight `showProgress()` function that only updates a dedicated progress container — does NOT rebuild the entire DOM on each step.
+- **Normalization**: `normalizeSnipeSpots()` and `normalize19Spots()` convert scanner-specific spot objects into unified rows with common fields: source, number, playerName, building, progress, rank, holder, cost, reward, profit, roi, medals, bps.
+- **Deduplication**: Keeps best profit per player+building per source.
+- **Rendering**: Results panel is appended after the button (not innerHTML replacement) to preserve button state. Results always render expanded.
+
+### Guild GB 1.9 Scanner (GuildGBService.js)
+
+Calculates break-even FP contributions for participating in a 1.9 thread:
+
+- **Thread price**: `Math.round(baseReward * 1.9)` — uses `Math.round` to match game reward rounding.
+- **FP needed**: `threadPrice - currentFP` in that rank position.
+- **Safety check**: Thread price must >= lock cost (`max(ceil((maxBelowFP + remaining) / 2), currentFP + 1)`) — positions only shown if safe to take.
+- **Near-completion snipe**: When `remainingFP < fpNeeded` (building almost done), falls back to lock-cost mode. The effective cost becomes the lock cost instead of the 1.9 price, since you only need to secure the rank before the building levels. These are often the most profitable opportunities (e.g., 2 FP for a 162 FP reward).
+- **Profit**: `Math.round(baseReward * userArcMultiplier) - effectiveCost`. At 90% Arc, profit is zero for normal 1.9 fills; above 90% profit is positive.
+- **Guild members list**: `guildMembers` exported from `OtherPlayerService.js`, filtered by `is_guild_member`.
 
 ### Collapsible Panels
 
