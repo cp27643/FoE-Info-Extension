@@ -611,8 +611,7 @@ let autoScanTimeoutId = null;
 let countdownIntervalId = null;
 let nextScanTime = 0;
 let lastScanStats = { time: null, alerts: 0 };
-const seenAlerts = new Map(); // key → timestamp (TTL-based dedup)
-const SEEN_TTL_MS = 30 * 60 * 1000; // 30 min cooldown per opportunity
+let lastSeenKeys = new Set(); // keys from previous scan cycle
 
 function getAutoScanSettings() {
   const webhookURL = (url && url.discordScanAlertURL) || '';
@@ -723,21 +722,19 @@ async function runAutoScanCycle() {
     const webhookURL = (url && url.discordScanAlertURL) || '';
     const qualifying = allRows.filter((r) => r.roi >= roiThreshold);
 
-    // Purge expired entries from seenAlerts
-    const now = Date.now();
-    for (const [key, ts] of seenAlerts) {
-      if (now - ts > SEEN_TTL_MS) seenAlerts.delete(key);
+    // Build keys for this cycle
+    const currentKeys = new Set();
+    for (const row of qualifying) {
+      currentKeys.add(`${row.playerName}|${row.building}|${row.rank}`);
     }
 
-    // Find truly new alerts
-    const newAlerts = [];
-    for (const row of qualifying) {
-      const key = `${row.playerName}|${row.building}|${row.rank}`;
-      if (!seenAlerts.has(key)) {
-        newAlerts.push(row);
-        seenAlerts.set(key, now);
-      }
-    }
+    // New = in this scan but not in the previous scan
+    const newAlerts = qualifying.filter(
+      (r) => !lastSeenKeys.has(`${r.playerName}|${r.building}|${r.rank}`),
+    );
+
+    // Update seen set for next cycle
+    lastSeenKeys = currentKeys;
 
     console.log(
       `[AutoScan] ${qualifying.length} above ${roiThreshold}% ROI, ${newAlerts.length} new`,
@@ -841,7 +838,7 @@ function startAutoScan() {
   }
 
   autoScanRunning = true;
-  seenAlerts.clear();
+  lastSeenKeys = new Set();
 
   const btn = scanAllDiv.querySelector('#autoScanToggle');
   if (btn) {
@@ -865,7 +862,7 @@ function stopAutoScan() {
     autoScanTimeoutId = null;
   }
   stopCountdown();
-  seenAlerts.clear();
+  lastSeenKeys = new Set();
 
   const btn = scanAllDiv.querySelector('#autoScanToggle');
   if (btn) {
