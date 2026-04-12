@@ -20,7 +20,7 @@
  * "Source" column identifying where each opportunity came from.
  */
 
-import { scanAllDiv, availablePacksFP, url, MyInfo, gameJsonUrl } from '../index.js';
+import { scanAllDiv, availablePacksFP, url, MyInfo, gameJsonUrl, PlayerID } from '../index.js';
 import { hoodlist, friends, guildMembers } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -579,8 +579,11 @@ async function collectAllRows(onProgress) {
     baseProgress += stepWeight;
   }
 
-  allRows.sort((a, b) => b.profit - a.profit);
-  return { allRows, sources, empty: false };
+  // Exclude own buildings (belt-and-suspenders — scanners also filter, but just in case)
+  const filtered = PlayerID ? allRows.filter((r) => r.playerId != PlayerID) : allRows;
+
+  filtered.sort((a, b) => b.profit - a.profit);
+  return { allRows: filtered, sources, empty: filtered.length === 0 };
 }
 
 // Tag rows with player activity from scoredb.io.

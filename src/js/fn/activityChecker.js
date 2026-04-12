@@ -95,12 +95,27 @@ async function fetchPlayerActivity(playerId, server) {
 
   try {
     const resp = await fetch(url, { signal: controller.signal });
-    if (!resp.ok) return { active: null, delta7d: null, delta30d: null };
+    if (!resp.ok) {
+      console.warn(
+        `[Activity] HTTP ${resp.status} for player ${playerId}`,
+      );
+      return { active: null, delta7d: null, delta30d: null };
+    }
 
     const html = await resp.text();
     const scores = parseScoreHistory(html);
-    return analyzeActivity(scores);
-  } catch {
+    if (!scores) {
+      console.warn(
+        `[Activity] No score data found for player ${playerId} (HTML length: ${html.length})`,
+      );
+    }
+    const result = analyzeActivity(scores);
+    console.log(
+      `[Activity] Player ${playerId}: active=${result.active}, 7d=${result.delta7d}, 30d=${result.delta30d}`,
+    );
+    return result;
+  } catch (err) {
+    console.warn(`[Activity] Fetch failed for player ${playerId}:`, err.message || err);
     return { active: null, delta7d: null, delta30d: null };
   } finally {
     clearTimeout(timeout);
