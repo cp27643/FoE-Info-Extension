@@ -32,11 +32,122 @@ import { scanFriendsData } from './FriendsGBService.js';
 import { scanGuildData } from './GuildGBService.js';
 
 // ---------------------------------------------------------------------------
+// Strategy Insights — optimal contribution recommendations
+// ---------------------------------------------------------------------------
+
+const STRATEGIES = [
+  { id: 'max-profit', label: '💰 Max FP Profit' },
+  { id: 'max-medals', label: '🏅 Max Medals' },
+  { id: 'high-roi', label: '📈 High ROI First' },
+  { id: 'balanced', label: '⚖️ Balanced' },
+];
+
+let currentStrategy = 'max-profit';
+let lastAllRows = [];
+
+function getValueFn(rows, strategyId) {
+  switch (strategyId) {
+    case 'max-profit':
+      return (r) => r.profit;
+    case 'max-medals':
+      return (r) => r.medals;
+    case 'high-roi':
+      return (r) => (r.profit > 0 ? r.roi : 0);
+    case 'balanced': {
+      const maxProfit = Math.max(...rows.map((r) => r.profit), 1);
+      const maxMedals = Math.max(...rows.map((r) => r.medals), 1);
+      const maxBps = Math.max(...rows.map((r) => r.bps), 1);
+      return (r) =>
+        (Math.max(0, r.profit) / maxProfit) * 0.5 +
+        (r.medals / maxMedals) * 0.35 +
+        (r.bps / maxBps) * 0.15;
+    }
+    default:
+      return (r) => r.profit;
+  }
+}
+
+function solveStrategy(rows, budget, strategyId) {
+  if (budget <= 0 || rows.length === 0) return new Set();
+
+  const valueFn = getValueFn(rows, strategyId);
+
+  // Build candidates with row indices
+  const candidates = rows
+    .map((r, i) => ({
+      ...r,
+      rowIndex: i,
+      value: valueFn(r),
+    }))
+    .filter((c) => c.value > 0 && c.cost > 0 && c.cost <= budget);
+
+  if (candidates.length === 0) return new Set();
+
+  // Sort by value/cost ratio descending (greedy knapsack)
+  candidates.sort(
+    (a, b) =>
+      b.value / Math.max(b.cost, 1) - a.value / Math.max(a.cost, 1),
+  );
+
+  // Greedy pick with conflict tracking (max one rank per building)
+  const picks = new Set();
+  const pickedBuildings = new Set();
+  let remaining = budget;
+
+  for (const c of candidates) {
+    const key = `${c.playerName}|${c.building}`;
+    if (pickedBuildings.has(key)) continue;
+    if (c.cost > remaining) continue;
+
+    picks.add(c.rowIndex);
+    pickedBuildings.add(key);
+    remaining -= c.cost;
+  }
+
+  // Enhancement: check if a single high-value item beats the greedy set
+  const greedyTotal = [...picks].reduce(
+    (sum, i) => sum + valueFn(rows[i]),
+    0,
+  );
+  const singleBest = candidates.reduce(
+    (best, c) => (!best || c.value > best.value ? c : best),
+    null,
+  );
+  if (singleBest && singleBest.value > greedyTotal) {
+    return new Set([singleBest.rowIndex]);
+  }
+
+  return picks;
+}
+
+function computeTotals(rows, picks) {
+  let cost = 0,
+    profit = 0,
+    medals = 0,
+    bps = 0;
+  for (const i of picks) {
+    const r = rows[i];
+    cost += r.cost;
+    profit += r.profit;
+    medals += r.medals;
+    bps += r.bps;
+  }
+  return { cost, profit, medals, bps, count: picks.size };
+}
+
+// ---------------------------------------------------------------------------
 // Results renderer
 // ---------------------------------------------------------------------------
 
 function showScanAllResults(allRows) {
+  lastAllRows = allRows;
   const arcBonus = City.ArcBonus ?? 90;
+  const totalFP = (availablePacksFP || 0) + (availableFP || 0);
+
+  // Compute strategy picks
+  const picks = solveStrategy(allRows, totalFP, currentStrategy);
+  const totals = computeTotals(allRows, picks);
+
   const status = `${allRows.length} opportunities across all sources (Arc ${arcBonus}%)`;
 
   // Final results always render expanded so the table is visible
@@ -48,23 +159,66 @@ function showScanAllResults(allRows) {
     <div id="scanAllText" class="resize collapse show">`;
 
   if (allRows.length) {
-    const totalFP = (availablePacksFP || 0) + (availableFP || 0);
+    // Strategy dropdown + summary banner
     const fpLabel =
       totalFP > 0 ? `Available FP: ${totalFP.toLocaleString()}` : '';
-    html += `<p class="mb-1 small text-muted">${fpLabel}
-      <button id="scanAllCsvBtn" class="btn btn-sm btn-outline-secondary ms-2">📊 Export Excel</button></p>`;
+    const strategyOptions = STRATEGIES.map(
+      (s) =>
+        `<option value="${s.id}" ${s.id === currentStrategy ? 'selected' : ''}>${s.label}</option>`,
+    ).join('');
+
+    html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <span class="small text-muted">${fpLabel}</span>
+      <button id="scanAllCsvBtn" class="btn btn-sm btn-outline-secondary">📊 Export Excel</button>
+    </div>`;
+
+    if (totalFP > 0) {
+      html += `<div class="card mb-2" style="background: #2b2b2b; border: 1px solid #444;">
+        <div class="card-body p-2">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <strong class="text-light">📊 Strategy:</strong>
+            <select id="strategyDropdown" class="form-select form-select-sm"
+                    style="width: auto; background: #333; color: #eee; border-color: #555;">
+              ${strategyOptions}
+            </select>
+            <span class="ms-auto small text-light">`;
+
+      if (picks.size > 0) {
+        html += `<span class="badge bg-warning text-dark">${totals.count} pick${totals.count > 1 ? 's' : ''}</span>
+              Cost: ${totals.cost.toLocaleString()} / ${totalFP.toLocaleString()} FP
+              | <span class="text-success fw-bold">Profit: +${totals.profit.toLocaleString()}</span>
+              | Medals: ${totals.medals.toLocaleString()}
+              | BPs: ${totals.bps.toLocaleString()}`;
+      } else {
+        html += `<span class="text-muted">No profitable picks within budget</span>`;
+      }
+
+      html += `</span></div></div></div>`;
+    }
+
+    // Table with pick column
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
-        <th>Source</th><th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
+        <th>Pick</th><th>Source</th><th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
         <th>Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>BPs</th>
       </tr></thead><tbody>`;
 
-    for (const row of allRows) {
+    // Sort: picks first, then by profit descending within each group
+    const sorted = allRows
+      .map((r, i) => ({ ...r, _i: i }))
+      .sort((a, b) => {
+        const aPick = picks.has(a._i) ? 0 : 1;
+        const bPick = picks.has(b._i) ? 0 : 1;
+        if (aPick !== bPick) return aPick - bPick;
+        return b.profit - a.profit;
+      });
+
+    for (const row of sorted) {
+      const isPick = picks.has(row._i);
       const canAfford = totalFP > 0 && row.cost <= totalFP;
       const rowClass =
-        totalFP > 0 ?
-          canAfford ? ''
-          : 'table-secondary'
+        isPick ? 'table-warning'
+        : totalFP > 0 && !canAfford ? 'table-secondary'
         : '';
       const costClass =
         totalFP > 0 ?
@@ -78,6 +232,7 @@ function showScanAllResults(allRows) {
         : 'bg-success';
 
       html += `<tr class="${rowClass}">
+        <td>${isPick ? '✅' : ''}</td>
         <td><span class="badge ${sourceBadge}">${row.source}</span></td>
         <td>${row.number}</td>
         <td>${row.playerName}</td>
@@ -116,6 +271,14 @@ function showScanAllResults(allRows) {
     csvBtn.addEventListener('click', () =>
       exportScanAllToExcel(allRows, 'scan_all_gb'),
     );
+  }
+
+  const dropdown = scanAllDiv.querySelector('#strategyDropdown');
+  if (dropdown) {
+    dropdown.addEventListener('change', (e) => {
+      currentStrategy = e.target.value;
+      showScanAllResults(lastAllRows);
+    });
   }
 
   document
@@ -417,20 +580,11 @@ async function runScanAll() {
 
     showProgress(100, 'Building results table…');
 
-    // Dedupe: keep best profit per player+building per source
-    const seen = new Set();
-    const deduped = allRows.filter((row) => {
-      const key = `${row.source}|${row.playerName}|${row.building}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
     // Sort by profit descending
-    deduped.sort((a, b) => b.profit - a.profit);
+    allRows.sort((a, b) => b.profit - a.profit);
 
     clearProgress();
-    showScanAllResults(deduped);
+    showScanAllResults(allRows);
     console.log('[ScanAll] Complete —', sources.join(', '));
   } finally {
     if (btn) {
