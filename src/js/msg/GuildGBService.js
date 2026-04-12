@@ -94,6 +94,19 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const rank = index + 1;
     const baseReward = rewards[index];
 
+    // Check who holds this position — in a 1.9 thread, only vacant
+    // positions or positions the user already partially holds are relevant.
+    const holderEntry = (rankings ?? []).find((p) => p.rank === rank);
+    const isVacant =
+      !holderEntry?.player?.name ||
+      holderEntry.player.name === 'No contributor yet';
+    const isSelf =
+      holderEntry?.player?.is_self ||
+      holderEntry?.player?.player_id == PlayerID;
+
+    // Skip positions already claimed by another player
+    if (!isVacant && !isSelf) continue;
+
     // 1.9 price: the break-even contribution at 1.9× multiplier
     // Game rounds rewards, so use Math.round to match
     const threadPrice = Math.round(baseReward * THREAD_MULTIPLIER);
@@ -102,6 +115,8 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const currentFP = Top[index];
 
     // How much FP is still needed to fill this spot to the 1.9 price
+    // For vacant positions: full thread price
+    // For self-held positions: remaining to reach 1.9
     const fpNeeded = Math.max(0, threadPrice - currentFP);
 
     // If already filled or overfilled, skip
@@ -141,22 +156,14 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       if (threadPrice < lockCost) continue;
     }
 
-    const isVacant = !rankings?.find(
-      (p) =>
-        p.rank === rank &&
-        p.player?.name &&
-        p.player.name !== 'No contributor yet',
-    );
-    const holder = rankings?.find((p) => p.rank === rank);
-
     // User's actual reward with their real Arc bonus
     const userReward = Math.round(baseReward * userArcMultiplier);
-    // Profit based on effective cost (thread price or lock cost)
+    // Profit based on effective cost (thread price or remaining FP)
     const userProfit = userReward - effectiveCost;
 
     spots.push({
       rank,
-      currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
+      currentHolder: isVacant ? '(open)' : (holderEntry?.player?.name ?? '?'),
       currentFP,
       threadPrice: isNearCompletion ? effectiveCost : threadPrice,
       fpNeeded: isNearCompletion ? effectiveCost : fpNeeded,
