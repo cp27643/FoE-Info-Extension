@@ -580,7 +580,8 @@ async function collectAllRows(onProgress) {
   }
 
   // Exclude own buildings (belt-and-suspenders — scanners also filter, but just in case)
-  const filtered = PlayerID ? allRows.filter((r) => r.playerId != PlayerID) : allRows;
+  const myId = MyInfo.id || PlayerID;
+  const filtered = myId ? allRows.filter((r) => r.playerId != myId) : allRows;
 
   filtered.sort((a, b) => b.profit - a.profit);
   return { allRows: filtered, sources, empty: filtered.length === 0 };

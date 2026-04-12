@@ -37,6 +37,7 @@ import {
   gameRequestHeaders,
   gameRequestId,
   PlayerID,
+  MyInfo,
   availablePacksFP,
 } from '../index.js';
 import { availableFP } from './ResourceService.js';
@@ -937,10 +938,11 @@ export async function onNeighborOverviewReceived(responseData) {
 // Core scan data function — returns { profitable, total } without rendering.
 // Used by both the individual scan button and the Scan All feature.
 export async function scanHoodData(onProgress) {
+  const myId = MyInfo.id || PlayerID;
   const neighbors = hoodlist.filter(
     (e) =>
       (e.is_neighbor || e.hasOwnProperty('is_neighbor')) &&
-      e.player_id != PlayerID,
+      e.player_id != myId,
   );
   const total = neighbors.length;
   console.log('[NeighborGB] Scanning', total, 'neighbors (batched)');

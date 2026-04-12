@@ -28,6 +28,7 @@ import {
   gameJsonUrl,
   gameRequestId,
   PlayerID,
+  MyInfo,
   availablePacksFP,
 } from '../index.js';
 import { friends } from './OtherPlayerService.js';
@@ -162,10 +163,11 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 
 // Core scan data function — returns { profitable, total } without rendering.
 export async function scanFriendsData(onProgress) {
+  const myId = MyInfo.id || PlayerID;
   const friendList = friends.filter(
     (e) =>
       (e.is_friend || e.hasOwnProperty('is_friend')) &&
-      e.player_id != PlayerID,
+      e.player_id != myId,
   );
   const total = friendList.length;
   console.log('[FriendsGB] Scanning', total, 'friends (batched)');
