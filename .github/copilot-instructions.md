@@ -96,7 +96,7 @@ Webpack `ProvidePlugin` makes `$`, `jQuery`, and `browser` available globally wi
 
 ### Dark Mode
 
-DevTools theme is detected via `browser.devtools.panels.themeName`. When `"dark"`, CSS classes `bg-dark` and `text-light` are applied to the body and content containers.
+Dark mode detection has been removed from the main panel. The DevTools panel uses the default theme. The options/settings page uses a clean light theme.
 
 ### Localization
 
@@ -141,17 +141,42 @@ Runs hood → friends → guild scans sequentially, merging results into one sor
 
 - **Progress bar**: Bootstrap animated striped progress bar with step labels. Uses a lightweight `showProgress()` function that only updates a dedicated progress container — does NOT rebuild the entire DOM on each step.
 - **Normalization**: `normalizeSnipeSpots()` and `normalize19Spots()` convert scanner-specific spot objects into unified rows with common fields: source, number, playerName, building, progress, rank, holder, cost, reward, profit, roi, medals, bps.
-- **Deduplication**: Keeps best profit per player+building per source.
-- **Rendering**: Results panel is appended after the button (not innerHTML replacement) to preserve button state. Results always render expanded.
+- **Shared scan logic**: `collectAllRows(onProgress)` extracts the core scan/merge logic for reuse by both manual Scan All and auto-scan. Returns `{ allRows, sources, empty }` without touching the DOM.
+- **Scan lock**: Module-level `scanInProgress` flag prevents manual and auto scans from running simultaneously.
+- **Rendering**: Results panel is appended after the button row (not innerHTML replacement) to preserve button state. Results always render expanded.
+
+### Strategy Insights (ScanAllService.js)
+
+The Scan All table includes a strategy optimizer that recommends which contributions to make given your available FP budget:
+
+- **Four modes**: Max FP Profit (`profit`), Max Medals (`medals`), High ROI (`roi`), Balanced (normalized weighted: 50% profit, 35% medals, 15% BPs).
+- **Conflict-aware greedy knapsack**: Groups by `playerName|building` — max one rank per GB. Greedy by value/cost ratio with single-best-item enhancement (2-approximation).
+- **UI**: Dropdown selector re-renders instantly. Summary banner shows pick count, total cost/profit/medals/BPs. Picked rows highlighted yellow with ✅.
+
+### Auto-Scan & Discord Alerts (ScanAllService.js)
+
+Automated periodic scanning with Discord webhook notifications for high-ROI opportunities:
+
+- **UI controls**: Start/Stop toggle button next to Scan All, live countdown timer ("Next scan in X:XX"), status line with last scan time and alert count.
+- **Timer**: Recursive `setTimeout` with randomized 5–6 min interval (300–360s). Prevents overlap — each cycle schedules the next only after completing.
+- **Discord webhooks**: Sends formatted messages via XMLHttpRequest to a user-configured webhook URL. Messages include source tag (🏘️ Neighbor / 🤝 Friend / ⚔️ Guild), player number, building, rank, cost, reward, profit, and ROI. Messages chunked to stay under Discord's 2000-char limit.
+- **Dedup**: Compares each cycle's qualifying opportunities against the previous cycle's set. New = present this scan but not last. All new opportunities batched into a single Discord message.
+- **ROI threshold**: Configurable in Settings → Webhooks tab (default 500%). Only opportunities at or above threshold trigger alerts.
+- **Table updates**: If a manual Scan All table exists, auto-scan refreshes it with fresh data each cycle. If no table exists, auto-scan runs silently (Discord alerts only).
+- **Settings storage**: Webhook URL stored as `url.discordScanAlertURL`, ROI threshold as `scanAlertROI` in `browser.storage.local`. Configured via the Settings → Webhooks tab. Webhook URLs are never committed to source code.
 
 ### Guild GB 1.9 Scanner (GuildGBService.js)
 
 Calculates break-even FP contributions for participating in a 1.9 thread:
 
 - **Thread price**: `Math.round(baseReward * 1.9)` — uses `Math.round` to match game reward rounding.
-- **FP needed**: `threadPrice - currentFP` in that rank position.
+- **Per-player FP model**: In FoE, contributions are tracked per player. To TAKE a rank, you must contribute MORE than the current holder individually. Ties go to whoever got there first.
+  - **Vacant**: `fpNeeded = threadPrice` (nobody to beat).
+  - **Self-held**: `fpNeeded = threadPrice - currentFP` (top up your own position).
+  - **Other-held**: `fpNeeded = threadPrice` (must beat their total); skip if `threadPrice <= currentFP` (can't beat them).
 - **Safety check**: Thread price must >= lock cost (`max(ceil((maxBelowFP + remaining) / 2), currentFP + 1)`) — positions only shown if safe to take.
-- **Near-completion snipe**: When `remainingFP < fpNeeded` (building almost done), falls back to lock-cost mode. The effective cost becomes the lock cost instead of the 1.9 price, since you only need to secure the rank before the building levels. These are often the most profitable opportunities (e.g., 2 FP for a 162 FP reward).
+- **Near-completion**: When `remainingFP < fpNeeded` (building almost done), effective cost = `remainingFP` (finish the building for the guild member). Must still beat holder: skip if `remainingFP <= currentFP` for other-held positions. These are often the most profitable opportunities (e.g., 3 FP for a 162 FP reward).
+- **Arc bonus on all rewards**: FP, medals, and blueprints are all multiplied by the user's Arc multiplier (`1 + arcBonus/100`). At 90% Arc: `1.9×` on all reward types.
 - **Profit**: `Math.round(baseReward * userArcMultiplier) - effectiveCost`. At 90% Arc, profit is zero for normal 1.9 fills; above 90% profit is positive.
 - **Guild members list**: `guildMembers` exported from `OtherPlayerService.js`, filtered by `is_guild_member`.
 
@@ -166,6 +191,18 @@ Every panel section uses a standard collapse pattern:
    - `<p id="xxxLabel" href="#xxxText" data-bs-toggle="collapse">` with `element.icon('xxxicon', 'xxxText', collapse.collapseXxx)` for the header.
    - `<div id="xxxText" class="collapse ${collapse.collapseXxx == false ? 'show' : ''}">` for the content.
    - Attach `collapse.fCollapseXxx` as a click listener on the label element.
+
+### Settings Page (options.js / options.html)
+
+The settings page opens in a new browser tab (via `window.open`) rather than `chrome://extensions`. It uses a **tab-based layout** with Bootstrap Tab JS:
+
+- **Panels** — Toggle visibility of city info, player lists, expedition, other info sections.
+- **Great Buildings** — GB donation helper options, donation %, rewards, donors, invested, guild admin (treasury).
+- **GBG / GvG** — Battleground member activity, leaderboard, building costs, province time, target generator.
+- **Webhooks** — Discord webhook URLs (GBG targets, GBG monitor, auto-scan alerts), auto-scan ROI threshold, Google Sheets URL.
+- **General** — Minimum panel height, language selector.
+
+Settings are persisted to `browser.storage.local` and loaded on page init. The options page uses a clean light theme (no dark mode). Bootstrap Tab JS is imported explicitly (`import 'bootstrap/js/dist/tab'`).
 
 ### Copyright Header
 
