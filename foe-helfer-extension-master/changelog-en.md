@@ -1076,9 +1076,7 @@
 **BugFix**
 
 - Discord Invite links were broken, so we replaced them
--
-
----
+- ***
 
 ##### 3.2.5.0
 

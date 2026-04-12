@@ -3213,7 +3213,7 @@ let Productions = {
     } else if (GoodType.includes('guild_expedition')) {
       return i18n('Boxes.General.Guild_Expedition');
     } else if (
-    /*else if (GoodType.includes('guild_raids')) {
+      /*else if (GoodType.includes('guild_raids')) {
 			return i18n('Boxes.General.Quantum_Incursion');
 		}*/
       GoodType.includes('att_boost_attacker') ||

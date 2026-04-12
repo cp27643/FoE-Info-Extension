@@ -20,7 +20,7 @@
  * "Source" column identifying where each opportunity came from.
  */
 
-import { scanAllDiv, availablePacksFP } from '../index.js';
+import { scanAllDiv, availablePacksFP, url, MyInfo } from '../index.js';
 import { hoodlist, friends, guildMembers } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -30,6 +30,7 @@ import { makeSortable } from '../fn/sortableTable.js';
 import { scanHoodData } from './NeighborGBService.js';
 import { scanFriendsData } from './FriendsGBService.js';
 import { scanGuildData } from './GuildGBService.js';
+import browser from 'webextension-polyfill';
 
 // ---------------------------------------------------------------------------
 // Strategy Insights — optimal contribution recommendations
@@ -468,9 +469,9 @@ function showProgress(pct, label) {
     container = document.createElement('div');
     container.id = 'scanAllProgress';
     container.className = 'mb-2';
-    // Insert after the button
-    const btn = scanAllDiv.querySelector('#scanAllBtn');
-    if (btn) btn.after(container);
+    // Insert after the button row
+    const btnRow = scanAllDiv.querySelector('#scanAllBtnRow');
+    if (btnRow) btnRow.after(container);
     else scanAllDiv.appendChild(container);
   }
   container.innerHTML = `
@@ -490,10 +491,83 @@ function clearProgress() {
 }
 
 // ---------------------------------------------------------------------------
-// Core scan — runs all available scans sequentially, merges results
+// Shared scan logic — collects rows without touching the UI
+// ---------------------------------------------------------------------------
+
+let scanInProgress = false;
+
+async function collectAllRows(onProgress) {
+  const allRows = [];
+  const sources = [];
+
+  const scans = [];
+  if (hoodlist.length > 0) scans.push('hood');
+  if (friends.length > 0) scans.push('friends');
+  if (guildMembers.length > 0) scans.push('guild');
+
+  if (scans.length === 0) return { allRows, sources, empty: true };
+
+  const stepWeight = 100 / scans.length;
+  let baseProgress = 0;
+
+  if (hoodlist.length > 0) {
+    try {
+      const { profitable } = await scanHoodData((msg) =>
+        onProgress?.(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
+      );
+      const rows = normalizeSnipeSpots(profitable, 'Hood');
+      allRows.push(...rows);
+      sources.push(`Hood: ${rows.length}`);
+    } catch (e) {
+      console.warn('[ScanAll] Hood scan failed:', e);
+      sources.push('Hood: failed');
+    }
+    baseProgress += stepWeight;
+    onProgress?.(baseProgress, 'Hood complete');
+  }
+
+  if (friends.length > 0) {
+    try {
+      const { profitable } = await scanFriendsData((msg) =>
+        onProgress?.(baseProgress + stepWeight * 0.3, `Friends: ${msg}`),
+      );
+      const rows = normalizeSnipeSpots(profitable, 'Friends');
+      allRows.push(...rows);
+      sources.push(`Friends: ${rows.length}`);
+    } catch (e) {
+      console.warn('[ScanAll] Friends scan failed:', e);
+      sources.push('Friends: failed');
+    }
+    baseProgress += stepWeight;
+    onProgress?.(baseProgress, 'Friends complete');
+  }
+
+  if (guildMembers.length > 0) {
+    try {
+      const { profitable } = await scanGuildData((msg) =>
+        onProgress?.(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
+      );
+      const rows = normalize19Spots(profitable, 'Guild');
+      allRows.push(...rows);
+      sources.push(`Guild: ${rows.length}`);
+    } catch (e) {
+      console.warn('[ScanAll] Guild scan failed:', e);
+      sources.push('Guild: failed');
+    }
+    baseProgress += stepWeight;
+  }
+
+  allRows.sort((a, b) => b.profit - a.profit);
+  return { allRows, sources, empty: false };
+}
+
+// ---------------------------------------------------------------------------
+// Manual scan — runs all scans with UI feedback
 // ---------------------------------------------------------------------------
 
 async function runScanAll() {
+  if (scanInProgress) return;
+  scanInProgress = true;
   console.log('[ScanAll] === SCAN ALL CLICKED ===');
 
   const btn = scanAllDiv.querySelector('#scanAllBtn');
@@ -502,87 +576,25 @@ async function runScanAll() {
     btn.textContent = '⏳ Scanning all…';
   }
 
-  // Remove any previous results panel (keep button + progress only)
   const oldPanel = scanAllDiv.querySelector('.alert');
   if (oldPanel) oldPanel.remove();
 
   try {
-    const allRows = [];
-    const sources = [];
+    const { allRows, sources, empty } = await collectAllRows((pct, label) =>
+      showProgress(pct, label),
+    );
 
-    // Determine which scans are available to calculate progress weights
-    const scans = [];
-    if (hoodlist.length > 0) scans.push('hood');
-    if (friends.length > 0) scans.push('friends');
-    if (guildMembers.length > 0) scans.push('guild');
-
-    if (scans.length === 0) {
+    if (empty) {
       showProgress(100, 'No player lists loaded — open the social bar first.');
       return;
     }
 
-    const stepWeight = 100 / scans.length;
-    let baseProgress = 0;
-
-    // Hood
-    if (hoodlist.length > 0) {
-      try {
-        const { profitable } = await scanHoodData((msg) =>
-          showProgress(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
-        );
-        const rows = normalizeSnipeSpots(profitable, 'Hood');
-        allRows.push(...rows);
-        sources.push(`Hood: ${rows.length}`);
-      } catch (e) {
-        console.warn('[ScanAll] Hood scan failed:', e);
-        sources.push('Hood: failed');
-      }
-      baseProgress += stepWeight;
-      showProgress(baseProgress, 'Hood complete');
-    }
-
-    // Friends
-    if (friends.length > 0) {
-      try {
-        const { profitable } = await scanFriendsData((msg) =>
-          showProgress(baseProgress + stepWeight * 0.3, `Friends: ${msg}`),
-        );
-        const rows = normalizeSnipeSpots(profitable, 'Friends');
-        allRows.push(...rows);
-        sources.push(`Friends: ${rows.length}`);
-      } catch (e) {
-        console.warn('[ScanAll] Friends scan failed:', e);
-        sources.push('Friends: failed');
-      }
-      baseProgress += stepWeight;
-      showProgress(baseProgress, 'Friends complete');
-    }
-
-    // Guild
-    if (guildMembers.length > 0) {
-      try {
-        const { profitable } = await scanGuildData((msg) =>
-          showProgress(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
-        );
-        const rows = normalize19Spots(profitable, 'Guild');
-        allRows.push(...rows);
-        sources.push(`Guild: ${rows.length}`);
-      } catch (e) {
-        console.warn('[ScanAll] Guild scan failed:', e);
-        sources.push('Guild: failed');
-      }
-      baseProgress += stepWeight;
-    }
-
     showProgress(100, 'Building results table…');
-
-    // Sort by profit descending
-    allRows.sort((a, b) => b.profit - a.profit);
-
     clearProgress();
     showScanAllResults(allRows);
     console.log('[ScanAll] Complete —', sources.join(', '));
   } finally {
+    scanInProgress = false;
     if (btn) {
       btn.disabled = false;
       btn.textContent = '🔍 Scan All';
@@ -591,15 +603,322 @@ async function runScanAll() {
 }
 
 // ---------------------------------------------------------------------------
+// Auto-scan state
+// ---------------------------------------------------------------------------
+
+let autoScanRunning = false;
+let autoScanTimeoutId = null;
+let countdownIntervalId = null;
+let nextScanTime = 0;
+let lastScanStats = { time: null, alerts: 0 };
+const seenAlerts = new Map(); // key → timestamp (TTL-based dedup)
+const SEEN_TTL_MS = 30 * 60 * 1000; // 30 min cooldown per opportunity
+
+function getAutoScanSettings() {
+  const webhookURL = (url && url.discordScanAlertURL) || '';
+  let roi = 500;
+  // scanAlertROI is stored at top-level in storage, read from the url obj
+  // We'll read it fresh each cycle from storage for reliability
+  return { webhookURL, roi };
+}
+
+async function loadROIThreshold() {
+  try {
+    const result = await browser.storage.local.get('scanAlertROI');
+    const val = parseInt(result.scanAlertROI, 10);
+    return isNaN(val) || val < 0 ? 500 : val;
+  } catch (e) {
+    return 500;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Discord webhook — send formatted alert
+// ---------------------------------------------------------------------------
+
+const DISCORD_MAX_CHARS = 1900;
+
+function sendDiscordWebhook(webhookURL, messages) {
+  if (!webhookURL || messages.length === 0) return;
+
+  // Chunk messages to stay under Discord's 2000 char limit
+  const chunks = [];
+  let current = '';
+
+  for (const msg of messages) {
+    if (current.length + msg.length + 1 > DISCORD_MAX_CHARS) {
+      if (current) chunks.push(current);
+      current = msg;
+    } else {
+      current += (current ? '\n' : '') + msg;
+    }
+  }
+  if (current) chunks.push(current);
+
+  const playerName = (MyInfo && MyInfo.name) || 'FoE-Info';
+
+  for (let i = 0; i < chunks.length; i++) {
+    const header =
+      chunks.length > 1 ?
+        `🔔 **FoE Snipe Alert** (${i + 1}/${chunks.length})\n\n`
+      : '🔔 **FoE Snipe Alert**\n\n';
+
+    const oReq = new XMLHttpRequest();
+    oReq.open('POST', webhookURL, true);
+    oReq.setRequestHeader('Content-type', 'application/json');
+    oReq.onreadystatechange = function () {
+      if (oReq.readyState === XMLHttpRequest.DONE && oReq.status >= 400) {
+        console.warn(
+          '[AutoScan] Discord webhook error:',
+          oReq.status,
+          oReq.responseText,
+        );
+      }
+    };
+    oReq.send(
+      JSON.stringify({
+        username: playerName,
+        avatar_url: '',
+        content: header + chunks[i],
+      }),
+    );
+  }
+}
+
+function formatAlertLine(row, idx) {
+  const num = idx + 1;
+  const circle = String.fromCodePoint(0x245f + num); // ①②③…
+  return (
+    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** — ${row.building} | #${row.rank}\n` +
+    `   Cost: ${row.cost} FP | Reward: ${row.reward} FP | Profit: +${row.profit} | ROI: ${row.roi}%`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Auto-scan cycle
+// ---------------------------------------------------------------------------
+
+async function runAutoScanCycle() {
+  if (scanInProgress) {
+    console.log('[AutoScan] Skipping — scan already in progress');
+    scheduleNextAutoScan();
+    return;
+  }
+
+  scanInProgress = true;
+  console.log('[AutoScan] === AUTO SCAN CYCLE ===');
+  updateAutoScanStatus('Scanning…');
+
+  try {
+    const { allRows, sources, empty } = await collectAllRows(null);
+    if (empty) {
+      console.log('[AutoScan] No player lists loaded, skipping');
+      lastScanStats = { time: new Date(), alerts: 0 };
+      updateAutoScanStatus('No players loaded');
+      return;
+    }
+
+    // Filter by ROI threshold
+    const roiThreshold = await loadROIThreshold();
+    const webhookURL = (url && url.discordScanAlertURL) || '';
+    const qualifying = allRows.filter((r) => r.roi >= roiThreshold);
+
+    // Purge expired entries from seenAlerts
+    const now = Date.now();
+    for (const [key, ts] of seenAlerts) {
+      if (now - ts > SEEN_TTL_MS) seenAlerts.delete(key);
+    }
+
+    // Find truly new alerts
+    const newAlerts = [];
+    for (const row of qualifying) {
+      const key = `${row.playerName}|${row.building}|${row.rank}`;
+      if (!seenAlerts.has(key)) {
+        newAlerts.push(row);
+        seenAlerts.set(key, now);
+      }
+    }
+
+    console.log(
+      `[AutoScan] ${qualifying.length} above ${roiThreshold}% ROI, ${newAlerts.length} new`,
+    );
+
+    // Send Discord alerts for new opportunities
+    if (newAlerts.length > 0 && webhookURL) {
+      const lines = newAlerts.map((r, i) => formatAlertLine(r, i));
+      const header = `Found **${newAlerts.length}** new opportunit${newAlerts.length === 1 ? 'y' : 'ies'} (ROI ≥ ${roiThreshold}%):\n`;
+      sendDiscordWebhook(webhookURL, [header, ...lines]);
+    }
+
+    lastScanStats = { time: new Date(), alerts: newAlerts.length };
+    console.log('[AutoScan] Complete —', sources.join(', '));
+  } catch (e) {
+    console.warn('[AutoScan] Cycle failed:', e);
+    lastScanStats = { time: new Date(), alerts: 0 };
+  } finally {
+    scanInProgress = false;
+  }
+
+  if (autoScanRunning) scheduleNextAutoScan();
+}
+
+function scheduleNextAutoScan() {
+  const delayMs = 300000 + Math.random() * 60000; // 5–6 min
+  nextScanTime = Date.now() + delayMs;
+  autoScanTimeoutId = setTimeout(runAutoScanCycle, delayMs);
+  startCountdown();
+}
+
+// ---------------------------------------------------------------------------
+// Auto-scan UI controls
+// ---------------------------------------------------------------------------
+
+function startCountdown() {
+  if (countdownIntervalId) clearInterval(countdownIntervalId);
+  countdownIntervalId = setInterval(updateCountdownDisplay, 1000);
+  updateCountdownDisplay();
+}
+
+function stopCountdown() {
+  if (countdownIntervalId) {
+    clearInterval(countdownIntervalId);
+    countdownIntervalId = null;
+  }
+}
+
+function updateCountdownDisplay() {
+  const el = scanAllDiv.querySelector('#autoScanCountdown');
+  if (!el) return;
+
+  const remaining = Math.max(0, nextScanTime - Date.now());
+  const min = Math.floor(remaining / 60000);
+  const sec = Math.floor((remaining % 60000) / 1000);
+  const countdown = `${min}:${sec.toString().padStart(2, '0')}`;
+
+  el.textContent = `Next scan in ${countdown}`;
+}
+
+function updateAutoScanStatus(msg) {
+  const el = scanAllDiv.querySelector('#autoScanStatus');
+  if (!el) return;
+
+  if (msg) {
+    el.textContent = msg;
+    return;
+  }
+
+  if (!autoScanRunning) {
+    el.textContent = '';
+    return;
+  }
+
+  const parts = [];
+  if (lastScanStats.time) {
+    const t = lastScanStats.time;
+    parts.push(
+      `Last: ${t.getHours()}:${t.getMinutes().toString().padStart(2, '0')} (${lastScanStats.alerts} alert${lastScanStats.alerts !== 1 ? 's' : ''})`,
+    );
+  }
+  el.textContent = parts.join(' | ');
+}
+
+function toggleAutoScan() {
+  if (autoScanRunning) {
+    stopAutoScan();
+  } else {
+    startAutoScan();
+  }
+}
+
+function startAutoScan() {
+  const webhookURL = (url && url.discordScanAlertURL) || '';
+  if (!webhookURL) {
+    const statusEl = scanAllDiv.querySelector('#autoScanStatus');
+    if (statusEl)
+      statusEl.textContent =
+        '⚠️ Set a Discord webhook URL in Settings → Webhooks first';
+    return;
+  }
+
+  autoScanRunning = true;
+  seenAlerts.clear();
+
+  const btn = scanAllDiv.querySelector('#autoScanToggle');
+  if (btn) {
+    btn.textContent = '⏹ Stop Auto-Scan';
+    btn.classList.remove('btn-outline-success');
+    btn.classList.add('btn-outline-danger');
+  }
+
+  const countdownEl = scanAllDiv.querySelector('#autoScanCountdown');
+  if (countdownEl) countdownEl.style.display = '';
+
+  console.log('[AutoScan] Started');
+  runAutoScanCycle();
+}
+
+function stopAutoScan() {
+  autoScanRunning = false;
+
+  if (autoScanTimeoutId) {
+    clearTimeout(autoScanTimeoutId);
+    autoScanTimeoutId = null;
+  }
+  stopCountdown();
+  seenAlerts.clear();
+
+  const btn = scanAllDiv.querySelector('#autoScanToggle');
+  if (btn) {
+    btn.textContent = '▶️ Start Auto-Scan';
+    btn.classList.remove('btn-outline-danger');
+    btn.classList.add('btn-outline-success');
+  }
+
+  const countdownEl = scanAllDiv.querySelector('#autoScanCountdown');
+  if (countdownEl) {
+    countdownEl.style.display = 'none';
+    countdownEl.textContent = '';
+  }
+
+  updateAutoScanStatus('Stopped');
+  console.log('[AutoScan] Stopped');
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
 export function initScanAllUI() {
+  // Button row: Scan All + Auto-Scan toggle
+  const btnRow = document.createElement('div');
+  btnRow.id = 'scanAllBtnRow';
+  btnRow.className = 'd-flex align-items-center gap-2 flex-wrap mt-1 mb-2';
+
   const btn = document.createElement('button');
   btn.id = 'scanAllBtn';
-  btn.className = 'btn btn-sm btn-dark mt-1 mb-2';
+  btn.className = 'btn btn-sm btn-dark';
   btn.textContent = '🔍 Scan All';
   btn.addEventListener('click', runScanAll);
+  btnRow.appendChild(btn);
 
-  scanAllDiv.appendChild(btn);
+  const autoBtn = document.createElement('button');
+  autoBtn.id = 'autoScanToggle';
+  autoBtn.className = 'btn btn-sm btn-outline-success';
+  autoBtn.textContent = '▶️ Start Auto-Scan';
+  autoBtn.addEventListener('click', toggleAutoScan);
+  btnRow.appendChild(autoBtn);
+
+  const countdown = document.createElement('span');
+  countdown.id = 'autoScanCountdown';
+  countdown.className = 'small text-muted';
+  countdown.style.display = 'none';
+  btnRow.appendChild(countdown);
+
+  scanAllDiv.appendChild(btnRow);
+
+  // Status line below buttons
+  const statusLine = document.createElement('div');
+  statusLine.id = 'autoScanStatus';
+  statusLine.className = 'small text-muted mb-1';
+  scanAllDiv.appendChild(statusLine);
 }

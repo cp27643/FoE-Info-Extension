@@ -907,7 +907,8 @@ let Parts = {
             (Level - 1) +
             ' &rarr; ' +
             Level,
-        ); // Level unknown
+        );
+      // Level unknown
       else h.push(i18n('Boxes.OwnpartCalculator.OldLevel'));
     } else {
       if (Parts.IsNextLevel)

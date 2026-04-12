@@ -120,7 +120,7 @@ FoEproxy.addHandler('RewardService', 'collectReward', (data, postData) => {
         return;
       }
     } else {
-    /*else if (data.responseData[0][2] && data.responseData[0][2]['subType'] === 'strategy_points') { // Event-Überraschungskiste
+      /*else if (data.responseData[0][2] && data.responseData[0][2]['subType'] === 'strategy_points') { // Event-Überraschungskiste
 			console.log('✔️Event-Überraschungskiste', data, postData);
 			event = 'event';
 			notes = i18n('Boxes.FPCollector.event_mystery_item');
