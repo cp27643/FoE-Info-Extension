@@ -251,12 +251,13 @@ function showScanAllResults(allRows) {
 
   html += `</div></div>`;
 
-  // Remove any old results panel but keep the button
-  const oldPanel = scanAllDiv.querySelector('.alert');
-  if (oldPanel) oldPanel.remove();
+  // Remove any old results wrapper entirely (not just the .alert inside it)
+  const oldWrapper = scanAllDiv.querySelector('#scanAllResults');
+  if (oldWrapper) oldWrapper.remove();
 
   // Insert results panel after button
   const resultsDiv = document.createElement('div');
+  resultsDiv.id = 'scanAllResults';
   resultsDiv.innerHTML = html;
   scanAllDiv.appendChild(resultsDiv);
 
@@ -576,8 +577,8 @@ async function runScanAll() {
     btn.textContent = '⏳ Scanning all…';
   }
 
-  const oldPanel = scanAllDiv.querySelector('.alert');
-  if (oldPanel) oldPanel.remove();
+  const oldWrapper = scanAllDiv.querySelector('#scanAllResults');
+  if (oldWrapper) oldWrapper.remove();
 
   try {
     const { allRows, sources, empty } = await collectAllRows((pct, label) =>
@@ -755,7 +756,8 @@ async function runAutoScanCycle() {
     }
 
     // Update the visible table only if a manual Scan All has been run
-    if (lastAllRows.length > 0 || scanAllDiv.querySelector('.alert')) {
+    if (lastAllRows.length > 0 || scanAllDiv.querySelector('#scanAllResults')) {
+      clearProgress();
       showScanAllResults(allRows);
     }
 
@@ -767,9 +769,8 @@ async function runAutoScanCycle() {
   } finally {
     scanInProgress = false;
     clearProgress();
+    if (autoScanRunning) scheduleNextAutoScan();
   }
-
-  if (autoScanRunning) scheduleNextAutoScan();
 }
 
 function scheduleNextAutoScan() {
