@@ -37,8 +37,7 @@
     "https://*.googleusercontent.com/",
     "https://discordapp.com/api/webhooks/*",
     "https://discord.com/api/webhooks/*",
-    "https://*.innogamescdn.com/*",
-    "https://foe.scoredb.io/*"
+    "https://*.innogamescdn.com/*"
   ],
   "content_scripts": [
     {
