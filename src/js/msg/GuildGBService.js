@@ -430,7 +430,9 @@ async function exportGuild19ToExcel(dedupedSpots, filename) {
 // Core scan data function — returns { profitable, total } without rendering.
 export async function scanGuildData(onProgress) {
   const memberList = guildMembers.filter(
-    (e) => e.is_guild_member || e.hasOwnProperty('is_guild_member'),
+    (e) =>
+      (e.is_guild_member || e.hasOwnProperty('is_guild_member')) &&
+      e.player_id != PlayerID,
   );
   const total = memberList.length;
   console.log('[GuildGB] Scanning', total, 'guild members (batched)');

@@ -163,7 +163,9 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 // Core scan data function — returns { profitable, total } without rendering.
 export async function scanFriendsData(onProgress) {
   const friendList = friends.filter(
-    (e) => e.is_friend || e.hasOwnProperty('is_friend'),
+    (e) =>
+      (e.is_friend || e.hasOwnProperty('is_friend')) &&
+      e.player_id != PlayerID,
   );
   const total = friendList.length;
   console.log('[FriendsGB] Scanning', total, 'friends (batched)');

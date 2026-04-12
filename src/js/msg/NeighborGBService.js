@@ -938,7 +938,9 @@ export async function onNeighborOverviewReceived(responseData) {
 // Used by both the individual scan button and the Scan All feature.
 export async function scanHoodData(onProgress) {
   const neighbors = hoodlist.filter(
-    (e) => e.is_neighbor || e.hasOwnProperty('is_neighbor'),
+    (e) =>
+      (e.is_neighbor || e.hasOwnProperty('is_neighbor')) &&
+      e.player_id != PlayerID,
   );
   const total = neighbors.length;
   console.log('[NeighborGB] Scanning', total, 'neighbors (batched)');
