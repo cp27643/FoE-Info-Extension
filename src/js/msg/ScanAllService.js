@@ -687,8 +687,12 @@ function sendDiscordWebhook(webhookURL, messages) {
 function formatAlertLine(row, idx) {
   const num = idx + 1;
   const circle = String.fromCodePoint(0x245f + num); // ①②③…
+  const tag =
+    row.source === 'Hood' ? '🏘️ Neighbor'
+    : row.source === 'Friends' ? '🤝 Friend'
+    : '⚔️ Guild';
   return (
-    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** — ${row.building} | #${row.rank}\n` +
+    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** [${tag}] — ${row.building} | #${row.rank}\n` +
     `   Cost: ${row.cost} FP | Reward: ${row.reward} FP | Profit: +${row.profit} | ROI: ${row.roi}%`
   );
 }
