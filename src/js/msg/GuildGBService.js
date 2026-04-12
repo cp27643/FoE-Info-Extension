@@ -121,8 +121,8 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     } else if (isSelf) {
       fpNeeded = Math.max(0, threadPrice - currentFP);
     } else {
-      // Must contribute full threadPrice to beat the current holder
-      // (threadPrice > currentFP is required, otherwise position is overfilled)
+      // Must contribute MORE than the current holder to take the rank
+      // (ties go to whoever got there first, so equal is not enough)
       if (threadPrice <= currentFP) continue;
       fpNeeded = threadPrice;
     }

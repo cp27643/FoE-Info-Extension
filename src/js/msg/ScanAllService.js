@@ -752,6 +752,9 @@ async function runAutoScanCycle() {
       sendDiscordWebhook(webhookURL, [header, ...lines]);
     }
 
+    // Update the visible table with fresh data
+    showScanAllResults(allRows);
+
     lastScanStats = { time: new Date(), alerts: newAlerts.length };
     console.log('[AutoScan] Complete —', sources.join(', '));
   } catch (e) {
