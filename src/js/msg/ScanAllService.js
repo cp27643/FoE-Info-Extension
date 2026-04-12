@@ -691,8 +691,9 @@ function formatAlertLine(row, idx) {
     row.source === 'Hood' ? '🏘️ Neighbor'
     : row.source === 'Friends' ? '🤝 Friend'
     : '⚔️ Guild';
+  const playerNum = row.number ? ` #${row.number}` : '';
   return (
-    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** [${tag}] — ${row.building} | #${row.rank}\n` +
+    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** [${tag}${playerNum}] — ${row.building} | #${row.rank}\n` +
     `   Cost: ${row.cost} FP | Reward: ${row.reward} FP | Profit: +${row.profit} | ROI: ${row.roi}%`
   );
 }
