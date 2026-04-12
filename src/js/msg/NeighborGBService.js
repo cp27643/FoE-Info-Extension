@@ -501,8 +501,8 @@ export function calculateProfitableSpots(rankings, remaining, arcBonus) {
       baseRewardFP: rewards[index],
       lockProfit,
       profitPct,
-      rewardMedals: medals[index],
-      rewardBlueprints: blueprints[index],
+      rewardMedals: Math.round(medals[index] * arcMultiplier),
+      rewardBlueprints: Math.round(blueprints[index] * arcMultiplier),
     });
   }
 
