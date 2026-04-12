@@ -714,7 +714,9 @@ async function runAutoScanCycle() {
   updateAutoScanStatus('Scanning…');
 
   try {
-    const { allRows, sources, empty } = await collectAllRows(null);
+    const { allRows, sources, empty } = await collectAllRows((pct, label) =>
+      showProgress(pct, label),
+    );
     if (empty) {
       console.log('[AutoScan] No player lists loaded, skipping');
       lastScanStats = { time: new Date(), alerts: 0 };
@@ -764,6 +766,7 @@ async function runAutoScanCycle() {
     lastScanStats = { time: new Date(), alerts: 0 };
   } finally {
     scanInProgress = false;
+    clearProgress();
   }
 
   if (autoScanRunning) scheduleNextAutoScan();
