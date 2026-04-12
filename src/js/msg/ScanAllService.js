@@ -752,8 +752,10 @@ async function runAutoScanCycle() {
       sendDiscordWebhook(webhookURL, [header, ...lines]);
     }
 
-    // Update the visible table with fresh data
-    showScanAllResults(allRows);
+    // Update the visible table only if a manual Scan All has been run
+    if (lastAllRows.length > 0 || scanAllDiv.querySelector('.alert')) {
+      showScanAllResults(allRows);
+    }
 
     lastScanStats = { time: new Date(), alerts: newAlerts.length };
     console.log('[AutoScan] Complete —', sources.join(', '));
