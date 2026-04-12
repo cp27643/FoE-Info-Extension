@@ -13,7 +13,7 @@
  */
 import browser from 'webextension-polyfill';
 import '../css/options.scss';
-// import "bootstrap/scss/bootstrap";
+import 'bootstrap/js/dist/tab';
 
 const showOptions = {
   showFriends: true,
