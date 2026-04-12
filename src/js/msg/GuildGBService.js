@@ -120,17 +120,18 @@ function calculate19Spots(rankings, remaining, arcBonus) {
 
     // Determine the effective cost and whether the position is viable:
     // Normal case: building has enough FP left to fill to the 1.9 price
-    // Near-completion: building is almost done — use the lock cost instead
+    // Near-completion: building is almost done — contribute all remaining FP
+    //   to level the building for the guild member (not a snipe)
     let effectiveCost;
     let isNearCompletion = false;
 
     if (remainingFP > 0 && fpNeeded > remainingFP) {
       // Building will complete before we can fill to the 1.9 price.
-      // Fall back to lock cost — a near-completion snipe.
+      // Contribute ALL remaining FP to level it for our guild member.
       isNearCompletion = true;
-      effectiveCost = lockCost;
+      effectiveCost = remainingFP;
 
-      // If even the lock cost exceeds remaining FP, truly can't secure it
+      // Must still be able to secure the rank
       if (lockCost > remainingFP) continue;
     } else {
       // Normal 1.9 thread fill
