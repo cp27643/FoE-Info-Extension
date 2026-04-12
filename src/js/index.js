@@ -476,23 +476,13 @@ const formatBytes = (size) => {
 };
 
 document.querySelector('#go-to-options').addEventListener('click', function () {
-  // console.debug('options');
-
   browser.permissions
     .request({
       permissions: ['storage'],
     })
     .then((granted) => {
-      // The callback argument will be true if the user granted the permissions.
       if (granted) {
-        //   doSomething();
-        if (browser.runtime.openOptionsPage) {
-          browser.runtime.openOptionsPage();
-        } else {
-          window.open(browser.runtime.getURL('options.html'));
-        }
-      } else {
-        //   doSomethingElse();
+        window.open(browser.runtime.getURL('options.html'));
       }
     });
 });
