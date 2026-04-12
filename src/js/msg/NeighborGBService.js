@@ -1081,6 +1081,7 @@ export async function scanHoodData(onProgress) {
       if (profitableSpots.length) {
         profitable.push({
           playerName: meta.playerName,
+          playerId: meta.playerId,
           hoodIndex: meta.neighborIndex + 1,
           name: meta.name,
           level: meta.level,

@@ -554,6 +554,7 @@ export async function scanGuildData(onProgress) {
       if (spots.length) {
         profitable.push({
           playerName: meta.playerName,
+          playerId: meta.playerId,
           guildIndex: meta.memberIndex + 1,
           name: meta.name,
           level: meta.level,

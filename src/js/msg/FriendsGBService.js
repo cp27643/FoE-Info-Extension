@@ -291,6 +291,7 @@ export async function scanFriendsData(onProgress) {
       if (profitableSpots.length) {
         profitable.push({
           playerName: meta.playerName,
+          playerId: meta.playerId,
           friendIndex: meta.friendIndex + 1,
           name: meta.name,
           level: meta.level,

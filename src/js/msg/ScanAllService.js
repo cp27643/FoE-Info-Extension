@@ -20,7 +20,7 @@
  * "Source" column identifying where each opportunity came from.
  */
 
-import { scanAllDiv, availablePacksFP, url, MyInfo } from '../index.js';
+import { scanAllDiv, availablePacksFP, url, MyInfo, gameJsonUrl } from '../index.js';
 import { hoodlist, friends, guildMembers } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -30,6 +30,10 @@ import { makeSortable } from '../fn/sortableTable.js';
 import { scanHoodData } from './NeighborGBService.js';
 import { scanFriendsData } from './FriendsGBService.js';
 import { scanGuildData } from './GuildGBService.js';
+import {
+  checkPlayersActivity,
+  detectServer,
+} from '../fn/activityChecker.js';
 import browser from 'webextension-polyfill';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +84,7 @@ function solveStrategy(rows, budget, strategyId) {
       rowIndex: i,
       value: valueFn(r),
     }))
-    .filter((c) => c.value > 0 && c.cost > 0 && c.cost <= budget);
+    .filter((c) => c.value > 0 && c.cost > 0 && c.cost <= budget && c.active !== false);
 
   if (candidates.length === 0) return new Set();
 
@@ -196,27 +200,34 @@ function showScanAllResults(allRows) {
     // Table with pick column
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
-        <th>Pick</th><th>Source</th><th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
+        <th>Pick</th><th>Source</th><th>#</th><th>Player</th><th>Active</th><th>Building</th><th>Progress</th><th>Rank</th>
         <th>Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>BPs</th>
       </tr></thead><tbody>`;
 
-    // Sort: picks first, then by profit descending within each group
+    // Sort: picks first, then active before inactive, then by profit descending
     const sorted = allRows
       .map((r, i) => ({ ...r, _i: i }))
       .sort((a, b) => {
         const aPick = picks.has(a._i) ? 0 : 1;
         const bPick = picks.has(b._i) ? 0 : 1;
         if (aPick !== bPick) return aPick - bPick;
+        // Active before inactive (false sorts after true/null)
+        const aInactive = a.active === false ? 1 : 0;
+        const bInactive = b.active === false ? 1 : 0;
+        if (aInactive !== bInactive) return aInactive - bInactive;
         return b.profit - a.profit;
       });
 
     for (const row of sorted) {
       const isPick = picks.has(row._i);
+      const isInactive = row.active === false;
       const canAfford = totalFP > 0 && row.cost <= totalFP;
       const rowClass =
         isPick ? 'table-warning'
+        : isInactive ? ''
         : totalFP > 0 && !canAfford ? 'table-secondary'
         : '';
+      const rowStyle = isInactive ? ' style="opacity: 0.45;"' : '';
       const costClass =
         totalFP > 0 ?
           canAfford ? 'text-success fw-bold'
@@ -228,11 +239,17 @@ function showScanAllResults(allRows) {
         : row.source === 'Friends' ? 'bg-info text-dark'
         : 'bg-success';
 
-      html += `<tr class="${rowClass}">
+      const activityBadge =
+        isInactive ? '<span class="badge bg-secondary">💤</span>'
+        : row.active === true ? '<span class="badge bg-success">✓</span>'
+        : '<span class="badge bg-light text-muted">?</span>';
+
+      html += `<tr class="${rowClass}"${rowStyle}>
         <td>${isPick ? '✅' : ''}</td>
         <td><span class="badge ${sourceBadge}">${row.source}</span></td>
         <td>${row.number}</td>
         <td>${row.playerName}</td>
+        <td>${activityBadge}</td>
         <td>${row.building}</td>
         <td>${row.progress}%</td>
         <td>#${row.rank} ${row.holder}</td>
@@ -300,6 +317,7 @@ function normalizeSnipeSpots(profitable, source) {
         source,
         number: item.hoodIndex ?? item.friendIndex ?? '',
         playerName: item.playerName,
+        playerId: item.playerId,
         building: `${item.name} Lv${item.level}`,
         progress: pct,
         rank: spot.rank,
@@ -328,6 +346,7 @@ function normalize19Spots(profitable, source) {
         source,
         number: item.guildIndex ?? '',
         playerName: item.playerName,
+        playerId: item.playerId,
         building: `${item.name} Lv${item.level}`,
         progress: pct,
         rank: spot.rank,
@@ -357,6 +376,7 @@ async function exportScanAllToExcel(allRows, filename) {
     'Source',
     '#',
     'Player',
+    'Active',
     'Building',
     'Progress',
     'Rank',
@@ -388,6 +408,7 @@ async function exportScanAllToExcel(allRows, filename) {
       r.source,
       r.number,
       r.playerName,
+      r.active === false ? '💤' : r.active === true ? '✓' : '?',
       r.building,
       r.progress / 100,
       `#${r.rank} ${r.holder}`,
@@ -562,6 +583,47 @@ async function collectAllRows(onProgress) {
   return { allRows, sources, empty: false };
 }
 
+// Tag rows with player activity from scoredb.io.
+// Modifies rows in-place, adding `active` (true/false/null) property.
+async function tagActivityStatus(allRows, onProgress) {
+  const server = detectServer(gameJsonUrl);
+  if (!server) {
+    console.log('[ScanAll] Could not detect server — skipping activity check');
+    return;
+  }
+
+  const uniqueIds = [...new Set(allRows.map((r) => r.playerId).filter(Boolean))];
+  if (uniqueIds.length === 0) return;
+
+  onProgress?.('Checking player activity…');
+  console.log(
+    `[ScanAll] Checking activity for ${uniqueIds.length} players on ${server}`,
+  );
+
+  const activityMap = await checkPlayersActivity(uniqueIds, server, (done, total) =>
+    onProgress?.(`Checking activity… ${done}/${total}`),
+  );
+
+  let activeCount = 0;
+  let inactiveCount = 0;
+  for (const row of allRows) {
+    const info = activityMap.get(row.playerId);
+    if (info) {
+      row.active = info.active;
+      row.delta7d = info.delta7d;
+      row.delta30d = info.delta30d;
+    } else {
+      row.active = null;
+    }
+    if (row.active === true) activeCount++;
+    if (row.active === false) inactiveCount++;
+  }
+
+  console.log(
+    `[ScanAll] Activity: ${activeCount} active, ${inactiveCount} inactive, ${allRows.length - activeCount - inactiveCount} unknown`,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Manual scan — runs all scans with UI feedback
 // ---------------------------------------------------------------------------
@@ -589,6 +651,9 @@ async function runScanAll() {
       showProgress(100, 'No player lists loaded — open the social bar first.');
       return;
     }
+
+    showProgress(95, 'Checking player activity…');
+    await tagActivityStatus(allRows, (msg) => showProgress(97, msg));
 
     showProgress(100, 'Building results table…');
     clearProgress();
@@ -693,8 +758,9 @@ function formatAlertLine(row, idx) {
     : row.source === 'Friends' ? '🤝 Friend'
     : '⚔️ Guild';
   const playerNum = row.number ? ` #${row.number}` : '';
+  const inactive = row.active === false ? ' 💤' : '';
   return (
-    `${num <= 20 ? circle : `(${num})`} **${row.playerName}** [${tag}${playerNum}] — ${row.building} | #${row.rank}\n` +
+    `${num <= 20 ? circle : `(${num})`} **${row.playerName}**${inactive} [${tag}${playerNum}] — ${row.building} | #${row.rank}\n` +
     `   Cost: ${row.cost} FP | Reward: ${row.reward} FP | Profit: +${row.profit} | ROI: ${row.roi}%`
   );
 }
@@ -724,6 +790,10 @@ async function runAutoScanCycle() {
       updateAutoScanStatus('No players loaded');
       return;
     }
+
+    // Check player activity
+    showProgress(95, 'Checking player activity…');
+    await tagActivityStatus(allRows, (msg) => showProgress(97, msg));
 
     // Filter by ROI threshold
     const roiThreshold = await loadROIThreshold();
