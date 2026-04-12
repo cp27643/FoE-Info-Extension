@@ -1,32 +1,32 @@
 #QiProgressList {
-	width: 570px;
-	height: 500px;
+  width: 570px;
+  height: 500px;
 }
 
 #QiProgressListBody {
-    overflow: auto;
+  overflow: auto;
 }
 
 #qi_roundswitch {
-    padding: 2px;
+  padding: 2px;
 }
 
 #QiProgressTable img {
-    max-height: 25px;
-    border-radius: 2px;
+  max-height: 25px;
+  border-radius: 2px;
 }
 
 #QiProgressTable .tdmin {
-    width: 1%;
-    white-space: nowrap;
+  width: 1%;
+  white-space: nowrap;
 }
 
 #QiProgressPlayerDetails {
-    width: 400px;
+  width: 400px;
 }
 
 #QiProgressPlayerDetails .pname {
-	padding: 10px 5px;
-	color: var(--bright-color);
-	font-size: 1.0rem;
+  padding: 10px 5px;
+  color: var(--bright-color);
+  font-size: 1rem;
 }

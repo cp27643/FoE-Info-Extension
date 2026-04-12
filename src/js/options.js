@@ -110,11 +110,15 @@ function save_options() {
   // Discord Webhooks
   url.discordTargetURL = document.getElementById('discordTargetURL').value;
   url.discordGBGURL = document.getElementById('discordGBGURL').value;
+  url.discordScanAlertURL = document.getElementById(
+    'discordScanAlertURL',
+  ).value;
+
+  // Auto-scan settings
+  var scanAlertROI = document.getElementById('scanAlertROI').value;
 
   // Google Sheets
   url.sheetGuildURL = document.getElementById('sheetGuildURL').value;
-  // url.sheetCityURL = document.getElementById('sheetCityURL').value;
-  // url.sheetGameURL = document.getElementById('sheetGameURL').value;
 
   setStorage(showOptions);
 
@@ -130,12 +134,12 @@ function save_options() {
       },
       donationPercent: donationPercent,
       donationSuffix: donationSuffix,
+      scanAlertROI: scanAlertROI,
       url: {
         discordTargetURL: url.discordTargetURL,
         discordGBGURL: url.discordGBGURL,
+        discordScanAlertURL: url.discordScanAlertURL,
         sheetGuildURL: url.sheetGuildURL,
-        // sheetCityURL: url.sheetCityURL,
-        // sheetGameURL: url.sheetGameURL
       },
     })
     .then(() => {
@@ -146,10 +150,6 @@ function save_options() {
 // Restores select box and checkbox state using the preferences
 // stored in browser.storage.
 function restore_options() {
-  // Use default value color = 'red' and likesColor = true.
-
-  // if(DEV) document.getElementById('urlDiv').style.display = "none";
-
   browser.storage.local
     .get([
       'showOptions',
@@ -160,6 +160,7 @@ function restore_options() {
       'toolOptions',
       'donationPercent',
       'donationSuffix',
+      'scanAlertROI',
     ])
     .then((items) => {
       if (items.showOptions) {
@@ -194,6 +195,9 @@ function restore_options() {
         document.getElementById('donationSuffix').value = items.donationSuffix;
         console.debug(items.donationSuffix);
       }
+      if (items.scanAlertROI) {
+        document.getElementById('scanAlertROI').value = items.scanAlertROI;
+      }
       if (items.url) {
         const url = items.url;
         if (url.discordTargetURL)
@@ -201,12 +205,11 @@ function restore_options() {
             url.discordTargetURL;
         if (url.discordGBGURL)
           document.getElementById('discordGBGURL').value = url.discordGBGURL;
+        if (url.discordScanAlertURL)
+          document.getElementById('discordScanAlertURL').value =
+            url.discordScanAlertURL;
         if (url.sheetGuildURL)
           document.getElementById('sheetGuildURL').value = url.sheetGuildURL;
-        // if(url.sheetCityURL)
-        //    document.getElementById('sheetCityURL').value = url.sheetCityURL;
-        // if(url.sheetGameURL)
-        //    document.getElementById('sheetGameURL').value = url.sheetGameURL;
       }
     });
 }

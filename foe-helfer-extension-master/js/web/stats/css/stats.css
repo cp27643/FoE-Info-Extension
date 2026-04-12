@@ -12,249 +12,248 @@
  */
 
 #stats {
-	top: calc(50% - 375px);
-	left: calc(50% - 550px);
+  top: calc(50% - 375px);
+  left: calc(50% - 550px);
 }
 
 #statsBody {
-	width: 1100px;
-	max-height: 800px;
-	overflow: auto;
+  width: 1100px;
+  max-height: 800px;
+  overflow: auto;
 }
 
 #stats #highcharts {
-	height: 670px;
+  height: 670px;
 }
 
 #stats .options {
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	align-items: center;
-	background-color: var(--black-50);
-	height: 50px;
-	border-bottom: 2px solid #864c1e;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--black-50);
+  height: 50px;
+  border-bottom: 2px solid #864c1e;
 }
 
 #stats .options-2 .btn-slim {
-	margin: 2px 0;
+  margin: 2px 0;
 }
 
 #stats .option-era-dropdown {
-	width: 170px;
+  width: 170px;
 }
 
 #stats .option-era-dropdown .dropdown {
-	width: 100%;
+  width: 100%;
 }
 
 #stats .option-era-dropdown .dropdown ul li {
-	padding: 0.1rem;
+  padding: 0.1rem;
 }
 
-#stats .tabs  {
-	align-self: flex-end;
-	padding: 0 5px;
+#stats .tabs {
+  align-self: flex-end;
+  padding: 0 5px;
 }
 
 #stats .option-chart-type-wrap {
-	width: 170px;
-	font-size: 85%;
+  width: 170px;
+  font-size: 85%;
 }
 
 #stats .option-chart-type-wrap span {
-	padding: 2px;
+  padding: 2px;
 }
 
 #stats .option-chart-type-wrap span.active {
-	color: var(--bright-color);
+  color: var(--bright-color);
 }
 
 #stats .option-source-wrap {
-	display: flex;
-	flex-wrap: wrap;
-	flex-direction: column;
-	align-items: baseline;
-	align-content: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: baseline;
+  align-content: baseline;
 }
 
 #stats .datepicker {
-	padding-right: 10px;
+  padding-right: 10px;
 }
 
 #stats .hidden {
-	visibility: hidden;
+  visibility: hidden;
 }
 
 @media (max-height: 1080px) {
-    #stats {
-	    top: 0;
-    }
+  #stats {
+    top: 0;
+  }
 
-    #statsBody {
-	    max-height: 700px;
-    }
+  #statsBody {
+    max-height: 700px;
+  }
 
-    #stats #highcharts {
-	    height: 570px;
-    }
+  #stats #highcharts {
+    height: 570px;
+  }
 }
 
 /* Highcharts table wrapper */
 #stats .highcharts-data-table {
-	overflow: scroll;
-	user-select: text;
+  overflow: scroll;
+  user-select: text;
 }
 
 #stats .highcharts-data-table caption {
-	font-size: 150%;
-	text-align: left;
-	margin-top: 10px;
-	margin-left: 20px;
+  font-size: 150%;
+  text-align: left;
+  margin-top: 10px;
+  margin-left: 20px;
 }
 
 /* Highcharts table */
 #stats .highcharts-data-table table {
-	border-spacing: 0;
-	border-collapse: separate;
-	width: 100%;
-	background-color: transparent;
+  border-spacing: 0;
+  border-collapse: separate;
+  width: 100%;
+  background-color: transparent;
 }
 
 #stats .highcharts-data-table table thead tr th,
 #stats .highcharts-data-table table th,
 .thead th {
-	background-color: rgba(0,0,0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 #stats .sprite-50 {
-	width: 30px;
+  width: 30px;
 }
 
 #stats .highcharts-data-table table tbody tr:nth-child(odd) {
-	background-color: rgba(255,255,255, 0.07);
+  background-color: rgba(255, 255, 255, 0.07);
 }
 
 #stats .highcharts-data-table table:not(.no-hover) tbody tr:hover {
-	background-color: var(--table-bg-hover);
+  background-color: var(--table-bg-hover);
 }
 
 #stats .highcharts-data-table table tr th {
-	white-space: nowrap;
+  white-space: nowrap;
 }
 
 #stats .highcharts-data-table table tr th,
 #stats .highcharts-data-table table tr td {
-	padding: 2px 5px;
+  padding: 2px 5px;
 }
 
 #stats .highcharts-data-table table tr td {
-	border-top: 1px solid var(--border-table-top);
-	border-bottom: 1px solid var(--border-table-bottom);
+  border-top: 1px solid var(--border-table-top);
+  border-bottom: 1px solid var(--border-table-bottom);
 }
 
 #stats .tabs .horizontal {
-	border-bottom: none;
+  border-bottom: none;
 }
 
 #stats .tabs ul.horizontal li {
-	line-height: 32px;
+  line-height: 32px;
 }
 
 #stats .tabs ul.horizontal li a span {
-	width: 27px;
+  width: 27px;
 }
 
 #stats .window-body .tabs ul.horizontal li {
-	margin-right: 2px;
+  margin-right: 2px;
 }
 
 #stats .tabs ul li a span {
-	background-size: contain;
-	background-repeat: no-repeat;
-	background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 #stats .tabs ul li.statsTreasurePlayerD a span {
-	background-image: url(../../x_img/resources.png);
+  background-image: url(../../x_img/resources.png);
 }
 #stats .tabs ul li.statsTreasureClanD a span {
-	background-image: url(../../x_img/guildGoods.png);
+  background-image: url(../../x_img/guildGoods.png);
 }
 #stats .tabs ul li.statsUnitsD a span {
-	background-image: url(../../x_img/units.png);
+  background-image: url(../../x_img/units.png);
 }
 #stats .tabs ul li.statsRewards a span {
-	background-image: url(../../x_img/event.png);
+  background-image: url(../../x_img/event.png);
 }
 #stats .tabs ul li.statsGBGPlayers a span {
-	background-image: url(../../x_img/gbg.png);
+  background-image: url(../../x_img/gbg.png);
 }
 #stats .tabs ul li.diplomaticGifts a span {
-	background-image: url(../../x_img/diplomatic_gifts.png);
+  background-image: url(../../x_img/diplomatic_gifts.png);
 }
 #stats .tabs ul li.spoilsOfWar a span {
-	background-image: url(../../x_img/spoils_of_war.png);
+  background-image: url(../../x_img/spoils_of_war.png);
 }
 #stats .tabs ul li.guildExpedition a span {
-	background-image: url(../../x_img/ge.png);
+  background-image: url(../../x_img/ge.png);
 }
 #stats .tabs ul li.battlegrounds_conquest a span {
-	background-image: url(../../x_img/gbg-gray.png);
+  background-image: url(../../x_img/gbg-gray.png);
 }
 #stats .tabs ul li.__event a span {
-	background-image: url(../../x_img/event.png);
+  background-image: url(../../x_img/event.png);
 }
 #stats .tabs ul li.hidden_reward a span {
-	background-image: url(../../x_img/incident.png);
+  background-image: url(../../x_img/incident.png);
 }
 #stats .tabs ul li.pvp_arena a span {
-	background-image: url(../../x_img/pvp_arena.png);
+  background-image: url(../../x_img/pvp_arena.png);
 }
 #stats .tabs ul li.guild_raids a span {
-	background-image: url(../../x_img/guild_raids.png);
+  background-image: url(../../x_img/guild_raids.png);
 }
 #stats .tabs ul li.shards a span {
-	background-image: url(../../x_img/shards.png);
+  background-image: url(../../x_img/shards.png);
 }
 
 #LowStock .options {
-	border: 3px solid transparent;
-	height: 30px;
-	background-color: var(--background-light);
+  border: 3px solid transparent;
+  height: 30px;
+  background-color: var(--background-light);
 }
 
 #LowStock .selected {
-	border-color: #74c02c;
+  border-color: #74c02c;
 }
 #LowStockID {
-	width: 300px;
-	height: 34px;
-	margin-left: 5px;
+  width: 300px;
+  height: 34px;
+  margin-left: 5px;
 }
 #LowStockValue {
-	height: 30px;
-	margin-left: 5px;
-	margin-right: 5px;
-	background-color: var(--background-light);
+  height: 30px;
+  margin-left: 5px;
+  margin-right: 5px;
+  background-color: var(--background-light);
 }
 #LowStockAddBtn {
-	height: 29px;
-    font-size: 18px;
-    margin-left: 5px;
-	font-weight: 900;
+  height: 29px;
+  font-size: 18px;
+  margin-left: 5px;
+  font-weight: 900;
 }
 .LowStockRemBtn {
-	height: 20px;
-    font-size: 12px;
-    margin-left: 5px;
-	font-weight: 900;
+  height: 20px;
+  font-size: 12px;
+  margin-left: 5px;
+  font-weight: 900;
 }
 .LShighlight {
-	background: var(--background-medium);
-    color: var(--text-light);
+  background: var(--background-medium);
+  color: var(--text-light);
 }
 #LowStockAlarmsList img {
-    height: 25px;
-    background-color: var(--background-light);
-	
+  height: 25px;
+  background-color: var(--background-light);
 }

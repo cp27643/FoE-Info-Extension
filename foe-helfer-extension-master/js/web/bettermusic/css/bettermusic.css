@@ -11,8 +11,7 @@
  * **************************************************************************************
  */
 
-
- #betterMusicDialog {
+#betterMusicDialog {
   top: 50px;
   left: calc(100vw - 350px);
   width: 550px;
@@ -38,7 +37,7 @@
 #musicSettingsScenesX tr th:first-child {
   writing-mode: horizontal-tb;
   text-align: left;
-  width:auto;
+  width: auto;
 }
 
 #betterMusicDialog .flex > div {
@@ -48,7 +47,7 @@
 
 #musicSettingsScenesX tr th {
   vertical-align: bottom;
-  width:15px;
+  width: 15px;
 }
 
 #musicSettingsScenesX tr th span {
@@ -73,43 +72,42 @@
   text-align: right;
 }
 
-
-#betterMusicDialogBody [type="checkbox"] {
+#betterMusicDialogBody [type='checkbox'] {
   display: none;
 }
-#betterMusicDialogBody [type="select"] {
+#betterMusicDialogBody [type='select'] {
   margin-top: 8px;
   margin-bottom: 15px;
 }
-#betterMusicDialogBody [type="checkbox"] + label {
+#betterMusicDialogBody [type='checkbox'] + label {
   position: relative;
   display: block;
   cursor: pointer;
   font-family: sans-serif;
-  padding-left:2.8em;
+  padding-left: 2.8em;
   position: relative;
   margin-top: 5px;
   margin-bottom: 5px;
 }
-#betterMusicDialogBody [type="checkbox"] + label:before {
+#betterMusicDialogBody [type='checkbox'] + label:before {
   width: 2em;
   height: 1em;
   border-radius: 1em;
   border: 2px solid var(--red);
   background-color: var(--table-bg-error);
-  content: "";
+  content: '';
   margin-right: 0.7em;
   transition: background-color 0.5s linear;
   z-index: 5;
   position: absolute;
   left: 0px;
 }
-#betterMusicDialogBody [type="checkbox"] + label:after {
+#betterMusicDialogBody [type='checkbox'] + label:after {
   width: 1em;
   height: 1em;
   border-radius: 1em;
   background-color: var(--text-normal);
-  content: "";
+  content: '';
   transition: margin 0.1s linear;
   box-shadow: 0px 0px 5px var(--text-muted);
   position: absolute;
@@ -117,10 +115,10 @@
   top: 2px;
   z-index: 10;
 }
-#betterMusicDialogBody [type="checkbox"]:checked + label:before {
+#betterMusicDialogBody [type='checkbox']:checked + label:before {
   background-color: var(--table-bg-success);
   border-color: var(--table-bb-success);
 }
-#betterMusicDialogBody [type="checkbox"]:checked + label:after {
+#betterMusicDialogBody [type='checkbox']:checked + label:after {
   margin: 0 0 0 1em;
 }

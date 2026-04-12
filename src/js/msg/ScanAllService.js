@@ -85,8 +85,7 @@ function solveStrategy(rows, budget, strategyId) {
 
   // Sort by value/cost ratio descending (greedy knapsack)
   candidates.sort(
-    (a, b) =>
-      b.value / Math.max(b.cost, 1) - a.value / Math.max(a.cost, 1),
+    (a, b) => b.value / Math.max(b.cost, 1) - a.value / Math.max(a.cost, 1),
   );
 
   // Greedy pick with conflict tracking (max one rank per building)
@@ -105,10 +104,7 @@ function solveStrategy(rows, budget, strategyId) {
   }
 
   // Enhancement: check if a single high-value item beats the greedy set
-  const greedyTotal = [...picks].reduce(
-    (sum, i) => sum + valueFn(rows[i]),
-    0,
-  );
+  const greedyTotal = [...picks].reduce((sum, i) => sum + valueFn(rows[i]), 0);
   const singleBest = candidates.reduce(
     (best, c) => (!best || c.value > best.value ? c : best),
     null,

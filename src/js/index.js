@@ -239,20 +239,15 @@ console.debug(tool.version);
 // 	en: 'i18n/en.json',
 // 	// el: "i18n/el.json"
 // 		} ).done( function() { console.debug('i18n.load OK') } );
-export var darkMode = browser.devtools.panels.themeName;
 console.info('themeName', browser.devtools.panels.themeName);
 
 var title = document.createElement('div');
 document.body.appendChild(title);
 title.id = 'title';
 title.className = 'd-flex flex-row justify-content-between';
-if (darkMode === 'dark') {
-  title.classList.add('text-light', 'bg-dark');
-}
 
 {
   const body = document.body;
-  if (darkMode === 'dark') body.classList.add('bg-dark', 'text-light');
   body.classList.add('bootstrap-styles');
 }
 
@@ -286,7 +281,6 @@ title.appendChild(newelement);
 export var content = document.createElement('div');
 document.body.appendChild(content);
 content.id = 'content';
-if (darkMode === 'dark') content.className = 'text-light bg-dark';
 export var citystats = document.createElement('div');
 content.appendChild(citystats);
 citystats.className = 'alert alert-warning';
@@ -520,18 +514,6 @@ window.addEventListener(
   false,
 );
 
-window
-  .matchMedia('(prefers-color-scheme: dark)')
-  .addEventListener('change', ({ matches }) => {
-    document.body.classList.toggle('bg-dark');
-    document.body.classList.toggle('text-light');
-    if (matches) {
-      console.log('change to dark mode!');
-      darkMode == 'dark';
-    } else {
-      console.log('change to light mode!');
-    }
-  });
 function onEvent(message, params) {
   console.debug(message, params);
 }

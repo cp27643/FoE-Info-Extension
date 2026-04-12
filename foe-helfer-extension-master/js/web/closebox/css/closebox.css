@@ -12,84 +12,84 @@
  */
 
 #CloseBox {
-    width: fit-content;
-    height: fit-content;
-    top: inherit;
-    left: inherit;
-    bottom: 230px;
-    right: 70px;
-    background: none;
-    z-index: 151;
+  width: fit-content;
+  height: fit-content;
+  top: inherit;
+  left: inherit;
+  bottom: 230px;
+  right: 70px;
+  background: none;
+  z-index: 151;
 }
 
 #CloseBox .settingtitle {
-    display: block;
-    margin-bottom: 7px;
-    font-size: 0.9em;
-    text-decoration: underline;
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.9em;
+  text-decoration: underline;
 }
 
 #CloseBoxBody {
-    box-shadow: var(--black-30) 0px 1px 4px, var(--border-tab) 0px 0px 0px 3px;
-    background: var(--border-tab);
-    border-radius: 5px;
+  box-shadow:
+    var(--black-30) 0px 1px 4px,
+    var(--border-tab) 0px 0px 0px 3px;
+  background: var(--border-tab);
+  border-radius: 5px;
 }
 
 #CloseBox:hover #CloseBoxBody {
-    box-shadow: none;
-    border-radius: unset;
+  box-shadow: none;
+  border-radius: unset;
 }
 
 #CloseBox .closebox {
-    padding: 0;
+  padding: 0;
 }
 
 #CloseBox .settingsbox-wrapper {
-    min-width: 250px;
-    right: -40px;
+  min-width: 250px;
+  right: -40px;
 }
 
 #CloseBox button.vertical {
-    display: block;
+  display: block;
 }
 
 #CloseBoxHeader {
-    display: none;
-
+  display: none;
 }
 
 #CloseBoxHeader .title em {
-    display: none;
+  display: none;
 }
 
 #CloseBox:hover {
-    overflow: visible;
-    padding-bottom: 27px;
+  overflow: visible;
+  padding-bottom: 27px;
 }
 
 #CloseBox:hover #CloseBoxHeader {
-    display: flex;
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    padding: 0.2rem;
-    border-radius: 0 0 3px 3px;
-    border-bottom-width: 0;
+  display: flex;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 0.2rem;
+  border-radius: 0 0 3px 3px;
+  border-bottom-width: 0;
 }
 
-
-#CloseBox:hover>.window-head>span.window-settings {
-    position: absolute;
-    right: 0;
+#CloseBox:hover > .window-head > span.window-settings {
+  position: absolute;
+  right: 0;
 }
 
 #CloseBox #CloseBoxSettingsBox {
-    top: 60px;
+  top: 60px;
 }
 
 #CloseBox #cb-close-all-windows {
-    width: 100%;
-    height: 100%;
-    font-size: 2vw;
+  width: 100%;
+  height: 100%;
+  font-size: 2vw;
 }

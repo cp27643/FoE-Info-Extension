@@ -12,46 +12,47 @@
  */
 
 #foe-helper-hud.hud-bottom {
-	left: 1035px;
-	bottom: 0;
-	width: 270px;
-	height: 43px;
-	border-radius: 2px 2px 0 0;
-	transition: all 0.1s ease;
-	border-bottom-width: 0;
+  left: 1035px;
+  bottom: 0;
+  width: 270px;
+  height: 43px;
+  border-radius: 2px 2px 0 0;
+  transition: all 0.1s ease;
+  border-bottom-width: 0;
 }
 
 .hud-bottom #foe-helper-hud-wrapper {
-	width: 220px;
-	height: inherit;
-	bottom: 0;
-	left: 0;
+  width: 220px;
+  height: inherit;
+  bottom: 0;
+  left: 0;
 }
 
 .hud-bottom #foe-helper-hud-slider {
-	position: absolute;
-	left: 0;
-	top: 0;
-	transition: left 0.7s ease-in-out;
-	height: inherit;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: left 0.7s ease-in-out;
+  height: inherit;
 }
 
-.hud-bottom .hud-btn, .hud-bottom .menu-placeholder {
-	float: left;
+.hud-bottom .hud-btn,
+.hud-bottom .menu-placeholder {
+  float: left;
 }
 
 .hud-bottom .hud-btn span:first-child {
-	display: inline-flex;
-	width: 80%;
-	height: 80%;
-	margin-top: 10%;
+  display: inline-flex;
+  width: 80%;
+  height: 80%;
+  margin-top: 10%;
 }
 
 .hud-bottom .hud-btn span.hud-counter {
-	width: 12px;
-	height: 12px;
-	left: 2px;
-	bottom: 2px;
-	line-height: 10px;
-	font-size: 0.7rem;
+  width: 12px;
+  height: 12px;
+  left: 2px;
+  bottom: 2px;
+  line-height: 10px;
+  font-size: 0.7rem;
 }

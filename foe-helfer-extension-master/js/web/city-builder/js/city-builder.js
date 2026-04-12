@@ -12,358 +12,397 @@
  */
 
 let CityBuilder = {
+  Data: [],
+  MapScale: 20,
 
-    Data: [],
-    MapScale: 20,
+  /**
+   * Initialisiert den Builder
+   */
+  init: async () => {
+    if ($('#CityBuilderBox').length > 0) {
+      HTML.CloseOpenBox('CityBuilderBox');
+      return;
+    }
 
+    CityBuilder.Data = []; // Daten zurücksetzen beim Öffnen
+    HTML.AddCssFile('city-builder');
 
-    /**
-     * Initialisiert den Builder
-     */
-    init: async () => {
-        if ($('#CityBuilderBox').length > 0) {
-            HTML.CloseOpenBox('CityBuilderBox');
-            return;
-        }
+    HTML.Box({
+      id: 'CityBuilderBox',
+      title: i18n('Boxes.CityBuilder.Title'),
+      auto_close: true,
+      dragdrop: true,
+      minimize: true,
+      resize: true,
+    });
 
-        CityBuilder.Data = []; // Daten zurücksetzen beim Öffnen
-        HTML.AddCssFile('city-builder');
-
-        HTML.Box({
-            id: 'CityBuilderBox',
-            title: i18n('Boxes.CityBuilder.Title'),
-            auto_close: true,
-            dragdrop: true,
-            minimize: true,
-            resize: true
-        });
-
-        // Ladebalken anzeigen
-        $('#CityBuilderBoxBody').html(`<div style="padding:20px; text-align:center;">
+    // Ladebalken anzeigen
+    $('#CityBuilderBoxBody')
+      .html(`<div style="padding:20px; text-align:center;">
             <div class="loader"></div>
             <br>
             ${i18n('Boxes.CityBuilder.Calculating') || 'Generiere Stadtlayout...'}
         </div>`);
 
-        // Daten sammeln und Berechnung starten
-        await CityBuilder.MergeData();
-    },
+    // Daten sammeln und Berechnung starten
+    await CityBuilder.MergeData();
+  },
 
+  /**
+   * Rendert die Stadtkarte
+   */
+  showMap: () => {
+    let storedUnit = parseInt(localStorage.getItem('CityBuilderScale') || 80);
+    let storedOpacity = parseFloat(
+      localStorage.getItem('CityBuilderOpacity') || 0.9,
+    );
 
-    /**
-     * Rendert die Stadtkarte
-     */
-    showMap: () => {
+    if (!CityBuilder.Data || CityBuilder.Data.length === 0) {
+      $('#CityBuilderBoxBody').html(
+        '<div style="padding:20px;">' +
+          i18n('Boxes.CityBuilder.NoData') +
+          '</div>',
+      );
+      return;
+    }
 
-        let storedUnit = parseInt(localStorage.getItem('CityBuilderScale') || 80);
-        let storedOpacity = parseFloat(localStorage.getItem('CityBuilderOpacity') || 0.9);
+    let h = [];
 
-        if (!CityBuilder.Data || CityBuilder.Data.length === 0) {
-            $('#CityBuilderBoxBody').html('<div style="padding:20px;">' + i18n('Boxes.CityBuilder.NoData') + '</div>');
-            return;
-        }
+    // Zoom Steuerungen oben rechts
+    h.push(`<div class="optimized-city-controls">`);
+    h.push(`<span>${i18n('Boxes.CityBuilder.Zoom')}: </span>`);
+    h.push(
+      `<input type="range" class="scale-slider" name="optimizedcityscale" min="50" max="200" step="1" value="${storedUnit}" />`,
+    );
+    h.push(`<span class="scale-value">${storedUnit}</span>`);
 
-        let h = [];
+    h.push(
+      `<span style="margin-left:8px">${i18n('Boxes.CityBuilder.Opacity')}: </span>`,
+    );
+    h.push(
+      `<input type="range" class="opacity-slider" name="opacity" min="0.1" max="1" step="0.05" value="${storedOpacity}" />`,
+    );
 
-        // Zoom Steuerungen oben rechts
-        h.push(`<div class="optimized-city-controls">`);
-        h.push(`<span>${i18n('Boxes.CityBuilder.Zoom')}: </span>`);
-        h.push(`<input type="range" class="scale-slider" name="optimizedcityscale" min="50" max="200" step="1" value="${storedUnit}" />`);
-        h.push(`<span class="scale-value">${storedUnit}</span>`);
+    h.push(`</div>`);
 
-        h.push(`<span style="margin-left:8px">${i18n('Boxes.CityBuilder.Opacity')}: </span>`);
-        h.push(`<input type="range" class="opacity-slider" name="opacity" min="0.1" max="1" step="0.05" value="${storedOpacity}" />`);
+    h.push(
+      `<div class="map-grid-wrapper" style="--scale:${storedUnit}; opacity:${storedOpacity};">`,
+    );
 
-        h.push(`</div>`);
+    // Canvas für die Karte
+    h.push(
+      `<canvas id="city-builder-canvas" class="map-grid-canvas"></canvas>`,
+    );
 
-        h.push(`<div class="map-grid-wrapper" style="--scale:${storedUnit}; opacity:${storedOpacity};">`);
+    // Tooltip Layer (unsichtbare Spans für helperTT)
+    h.push(`<div class="map-grid-tooltips">`);
+    for (let building of CityBuilder.Data) {
+      h.push(CityBuilder.placeBuilding(building));
+    }
+    h.push(`</div>`);
 
-        // Canvas für die Karte
-        h.push(`<canvas id="city-builder-canvas" class="map-grid-canvas"></canvas>`);
+    h.push(`</div>`);
 
-        // Tooltip Layer (unsichtbare Spans für helperTT)
-        h.push(`<div class="map-grid-tooltips">`);
-        for (let building of CityBuilder.Data) {
-            h.push(CityBuilder.placeBuilding(building));
-        }
-        h.push(`</div>`);
+    $('#CityBuilderBoxBody')
+      .html(h.join(''))
+      .promise()
+      .done(function () {
+        CityBuilder.renderCanvas();
 
-        h.push(`</div>`);
-
-        $('#CityBuilderBoxBody').html(h.join('')).promise().done(function() {
-
-            CityBuilder.renderCanvas();
-
-            $('.scale-slider').on('input', function() {
-                let unit = parseFloat($(this).val());
-                localStorage.setItem('CityBuilderScale', unit);
-                $('#CityBuilderBoxBody .map-grid-wrapper').css('--scale', unit);
-                $('.scale-value').text(unit);
-            });
-
-            $('.opacity-slider').on('input', function() {
-                let val = $(this).val();
-                localStorage.setItem('CityBuilderOpacity', val);
-                $('#CityBuilderBoxBody .map-grid-wrapper').css('opacity', val);
-            });
+        $('.scale-slider').on('input', function () {
+          let unit = parseFloat($(this).val());
+          localStorage.setItem('CityBuilderScale', unit);
+          $('#CityBuilderBoxBody .map-grid-wrapper').css('--scale', unit);
+          $('.scale-value').text(unit);
         });
-    },
 
+        $('.opacity-slider').on('input', function () {
+          let val = $(this).val();
+          localStorage.setItem('CityBuilderOpacity', val);
+          $('#CityBuilderBoxBody .map-grid-wrapper').css('opacity', val);
+        });
+      });
+  },
 
-    /**
-     * Zeichnet die Stadtkarte auf das Canvas
-     */
-    renderCanvas: () => {
-        const canvas = document.getElementById('city-builder-canvas');
-        if (!canvas) {
-            console.warn('CityBuilder: Canvas element not found!');
-            return;
+  /**
+   * Zeichnet die Stadtkarte auf das Canvas
+   */
+  renderCanvas: () => {
+    const canvas = document.getElementById('city-builder-canvas');
+    if (!canvas) {
+      console.warn('CityBuilder: Canvas element not found!');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // 1. Datenquellen sicher abrufen (verhindert Abstürze wenn Variablen fehlen)
+    let areas = [];
+    try {
+      if (typeof CityMap !== 'undefined') {
+        if (typeof ActiveMap !== 'undefined' && ActiveMap === 'era_outpost')
+          areas = CityMap.EraOutpost.areas;
+        else if (
+          typeof ActiveMap !== 'undefined' &&
+          ActiveMap === 'guild_raids'
+        )
+          areas = CityMap.QI.areas;
+        else if (
+          typeof ActiveMap !== 'undefined' &&
+          ActiveMap === 'cultural_outpost'
+        )
+          areas = CityMap.CulturalOutpost.areas;
+        else areas = CityMap.Main.unlockedAreas;
+      }
+    } catch (err) {
+      console.error('CityBuilder: Error accessing CityMap', err);
+    }
+
+    // Falls null/undefined
+    if (!areas) areas = [];
+
+    // 2. Größe berechnen
+    let maxX = 0,
+      maxY = 0;
+
+    // Versuch 1: Aus den freigeschalteten Flächen
+    if (areas.length > 0) {
+      for (let area of areas) {
+        const ax = parseInt(area.x || 0);
+        const ay = parseInt(area.y || 0);
+        const aw = parseInt(area.width || 16);
+        const al = parseInt(area.length || area.height || 16);
+
+        maxX = Math.max(maxX, ax + aw);
+        maxY = Math.max(maxY, ay + al);
+      }
+    }
+
+    // Versuch 2: Aus den Gebäuden (Fallback, falls Areas fehlen oder 0 sind)
+    if (
+      (maxX === 0 || maxY === 0) &&
+      CityBuilder.Data &&
+      CityBuilder.Data.length > 0
+    ) {
+      console.log('CityBuilder: Calculating size from buildings...');
+      for (let b of CityBuilder.Data) {
+        const bx = parseInt(b.x || 0);
+        const by = parseInt(b.y || 0);
+        const bw = parseInt(b.width || 0);
+        const bh = parseInt(b.height || 0);
+
+        maxX = Math.max(maxX, bx + bw);
+        maxY = Math.max(maxY, by + bh);
+      }
+      // Etwas Rand hinzufügen
+      maxX += 4;
+      maxY += 4;
+    }
+
+    // Absolute Mindestgröße (damit Canvas nie 0 ist)
+    maxX = Math.max(maxX, 60);
+    maxY = Math.max(maxY, 60);
+
+    const width = maxX * CityBuilder.MapScale;
+    const height = maxY * CityBuilder.MapScale;
+
+    // Canvas Größe setzen
+    canvas.width = width;
+    canvas.height = height;
+
+    // Canvas löschen
+    ctx.clearRect(0, 0, width, height);
+
+    // 3. Hintergrund zeichnen
+    // FoE Grün, 30% Deckkraft (fest codiert, um CSS Fehler zu vermeiden)
+    ctx.fillStyle = 'rgba(124, 230, 76, 0.3)';
+
+    if (areas.length > 0) {
+      for (let area of areas) {
+        const ax = parseInt(area.x) * CityBuilder.MapScale;
+        const ay = parseInt(area.y) * CityBuilder.MapScale;
+        const aw = parseInt(area.width || 16) * CityBuilder.MapScale;
+        const ah =
+          parseInt(area.length || area.height || 16) * CityBuilder.MapScale;
+
+        ctx.fillRect(ax, ay, aw, ah);
+      }
+    } else {
+      // Fallback: Einfaches Rechteck über alles
+      ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    // 4. Feines Raster (1x1)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    for (let x = 0; x <= maxX; x++) {
+      ctx.moveTo(x * CityBuilder.MapScale, 0);
+      ctx.lineTo(x * CityBuilder.MapScale, height);
+    }
+    for (let y = 0; y <= maxY; y++) {
+      ctx.moveTo(0, y * CityBuilder.MapScale);
+      ctx.lineTo(width, y * CityBuilder.MapScale);
+    }
+    ctx.stroke();
+
+    // 5. Sektoren Raster (4x4 oder Area-Grenzen)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+
+    if (areas.length > 0) {
+      for (let area of areas) {
+        const ax = parseInt(area.x);
+        const ay = parseInt(area.y);
+        const aw = parseInt(area.width || 16);
+        const ah = parseInt(area.length || area.height || 16);
+
+        ctx.rect(
+          ax * CityBuilder.MapScale,
+          ay * CityBuilder.MapScale,
+          aw * CityBuilder.MapScale,
+          ah * CityBuilder.MapScale,
+        );
+      }
+    } else {
+      // Fallback: 4er Gitter
+      for (let x = 0; x <= maxX; x += 4) {
+        ctx.moveTo(x * CityBuilder.MapScale, 0);
+        ctx.lineTo(x * CityBuilder.MapScale, height);
+      }
+      for (let y = 0; y <= maxY; y += 4) {
+        ctx.moveTo(0, y * CityBuilder.MapScale);
+        ctx.lineTo(width, y * CityBuilder.MapScale);
+      }
+    }
+    ctx.stroke();
+
+    // 6. Gebäude zeichnen
+    if (CityBuilder.Data) {
+      for (let b of CityBuilder.Data) {
+        let type = b.type || 'generic_building';
+        if (type.includes('street') || b.name === 'Road') type = 'street';
+        if (b.street_level === 0 && type !== 'street') type = 'roadless';
+
+        const bx = parseInt(b.x || 0) * CityBuilder.MapScale;
+        const by = parseInt(b.y || 0) * CityBuilder.MapScale;
+        const bw = parseInt(b.width || 1) * CityBuilder.MapScale;
+        const bh = parseInt(b.height || 1) * CityBuilder.MapScale;
+
+        let bgColor = '#ccc';
+        if (type === 'street') bgColor = '#333333';
+        else if (type === 'roadless') bgColor = '#8A2BE2';
+        else if (type === 'main_building') bgColor = '#FFD700';
+        else if (type === 'greatbuilding') bgColor = '#FF4500';
+        else {
+          // CSS Variable lesen (mit try catch, da getComputedStyle manchmal zickt)
+          try {
+            let cssVar = getComputedStyle(document.documentElement)
+              .getPropertyValue(`--background-color-${type}`)
+              .trim();
+            if (cssVar) bgColor = cssVar;
+            else bgColor = '#87CEEB';
+          } catch (e) {
+            bgColor = '#87CEEB';
+          }
+
+          if (b.street_level === 0) bgColor = '#8A2BE2';
         }
 
-        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(bx, by, bw, bh);
 
-        // 1. Datenquellen sicher abrufen (verhindert Abstürze wenn Variablen fehlen)
-        let areas = [];
-        try {
-            if (typeof CityMap !== 'undefined') {
-                if (typeof ActiveMap !== 'undefined' && ActiveMap === 'era_outpost') areas = CityMap.EraOutpost.areas;
-                else if (typeof ActiveMap !== 'undefined' && ActiveMap === 'guild_raids') areas = CityMap.QI.areas;
-                else if (typeof ActiveMap !== 'undefined' && ActiveMap === 'cultural_outpost') areas = CityMap.CulturalOutpost.areas;
-                else areas = CityMap.Main.unlockedAreas;
-            }
-        } catch (err) {
-            console.error('CityBuilder: Error accessing CityMap', err);
+        if (type !== 'street') {
+          ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bx, by, bw, bh);
         }
+      }
+    }
 
-        // Falls null/undefined
-        if (!areas) areas = [];
+    // 7. Outline
+    if (areas.length > 0) {
+      CityBuilder.drawCanvasOutline(ctx, areas);
+    }
+  },
 
-        // 2. Größe berechnen
-        let maxX = 0, maxY = 0;
+  /**
+   * Zeichnet den Umriss der Stadtkarte auf das Canvas
+   */
+  drawCanvasOutline: (ctx, areas) => {
+    let edges = {};
 
-        // Versuch 1: Aus den freigeschalteten Flächen
-        if (areas.length > 0) {
-            for (let area of areas) {
-                const ax = parseInt(area.x || 0);
-                const ay = parseInt(area.y || 0);
-                const aw = parseInt(area.width || 16);
-                const al = parseInt(area.length || area.height || 16);
+    const addEdge = (x1, y1, x2, y2) => {
+      const key =
+        x1 < x2 || (x1 === x2 && y1 < y2) ?
+          `${x1},${y1}-${x2},${y2}`
+        : `${x2},${y2}-${x1},${y1}`;
+      if (edges[key]) {
+        delete edges[key];
+      } else {
+        edges[key] = { x1, y1, x2, y2 };
+      }
+    };
 
-                maxX = Math.max(maxX, ax + aw);
-                maxY = Math.max(maxY, ay + al);
-            }
-        }
+    for (let area of areas) {
+      const x = parseInt(area.x);
+      const y = parseInt(area.y);
+      const w = parseInt(area.width || 16);
+      const h = parseInt(area.length || area.height || 16);
 
-        // Versuch 2: Aus den Gebäuden (Fallback, falls Areas fehlen oder 0 sind)
-        if ((maxX === 0 || maxY === 0) && CityBuilder.Data && CityBuilder.Data.length > 0) {
-            console.log('CityBuilder: Calculating size from buildings...');
-            for (let b of CityBuilder.Data) {
-                const bx = parseInt(b.x || 0);
-                const by = parseInt(b.y || 0);
-                const bw = parseInt(b.width || 0);
-                const bh = parseInt(b.height || 0);
+      addEdge(x, y, x + w, y);
+      addEdge(x + w, y, x + w, y + h);
+      addEdge(x + w, y + h, x, y + h);
+      addEdge(x, y + h, x, y);
+    }
 
-                maxX = Math.max(maxX, bx + bw);
-                maxY = Math.max(maxY, by + bh);
-            }
-            // Etwas Rand hinzufügen
-            maxX += 4;
-            maxY += 4;
-        }
+    ctx.strokeStyle = '#CCFF00';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let key in edges) {
+      let edge = edges[key];
+      ctx.moveTo(
+        edge.x1 * CityBuilder.MapScale,
+        edge.y1 * CityBuilder.MapScale,
+      );
+      ctx.lineTo(
+        edge.x2 * CityBuilder.MapScale,
+        edge.y2 * CityBuilder.MapScale,
+      );
+    }
+    ctx.stroke();
+  },
 
-        // Absolute Mindestgröße (damit Canvas nie 0 ist)
-        maxX = Math.max(maxX, 60);
-        maxY = Math.max(maxY, 60);
+  /**
+   * HTML für ein einzelnes Gebäude erzeugen
+   */
+  placeBuilding: (building) => {
+    let type = building.type || 'generic_building';
 
-        const width = maxX * CityBuilder.MapScale;
-        const height = maxY * CityBuilder.MapScale;
+    // Straßen explizit als Typ setzen, damit CSS greift
+    if (type === 'street' || building.name === 'Road') {
+      type = 'street';
+    }
 
-        // Canvas Größe setzen
-        canvas.width = width;
-        canvas.height = height;
+    let street =
+      building.street_level === 0 && type !== 'street' ? ' roadless' : '';
 
-        // Canvas löschen
-        ctx.clearRect(0, 0, width, height);
+    const x = parseInt(building.x);
+    const y = parseInt(building.y);
+    const w = parseInt(building.width);
+    const h = parseInt(building.height);
 
-        // 3. Hintergrund zeichnen
-        // FoE Grün, 30% Deckkraft (fest codiert, um CSS Fehler zu vermeiden)
-        ctx.fillStyle = 'rgba(124, 230, 76, 0.3)';
+    if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h)) return '';
 
-        if (areas.length > 0) {
-            for (let area of areas) {
-                const ax = parseInt(area.x) * CityBuilder.MapScale;
-                const ay = parseInt(area.y) * CityBuilder.MapScale;
-                const aw = parseInt(area.width || 16) * CityBuilder.MapScale;
-                const ah = parseInt(area.length || area.height || 16) * CityBuilder.MapScale;
+    // Tooltip-Attribute (Straßen brauchen meist keinen Tooltip, aber wir rendern das Element trotzdem)
+    // Wir geben Straßen keine 'helperTT' Klasse, damit kein leeres Popup kommt
+    let tooltipClass = type === 'street' ? '' : 'helperTT';
 
-                ctx.fillRect(ax, ay, aw, ah);
-            }
-        } else {
-            // Fallback: Einfaches Rechteck über alles
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
-            ctx.fillRect(0, 0, width, height);
-        }
-
-        // 4. Feines Raster (1x1)
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-
-        for (let x = 0; x <= maxX; x++) {
-            ctx.moveTo(x * CityBuilder.MapScale, 0);
-            ctx.lineTo(x * CityBuilder.MapScale, height);
-        }
-        for (let y = 0; y <= maxY; y++) {
-            ctx.moveTo(0, y * CityBuilder.MapScale);
-            ctx.lineTo(width, y * CityBuilder.MapScale);
-        }
-        ctx.stroke();
-
-        // 5. Sektoren Raster (4x4 oder Area-Grenzen)
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-
-        if (areas.length > 0) {
-            for (let area of areas) {
-                const ax = parseInt(area.x);
-                const ay = parseInt(area.y);
-                const aw = parseInt(area.width || 16);
-                const ah = parseInt(area.length || area.height || 16);
-
-                ctx.rect(
-                    ax * CityBuilder.MapScale,
-                    ay * CityBuilder.MapScale,
-                    aw * CityBuilder.MapScale,
-                    ah * CityBuilder.MapScale
-                );
-            }
-        } else {
-            // Fallback: 4er Gitter
-            for (let x = 0; x <= maxX; x += 4) {
-                ctx.moveTo(x * CityBuilder.MapScale, 0);
-                ctx.lineTo(x * CityBuilder.MapScale, height);
-            }
-            for (let y = 0; y <= maxY; y += 4) {
-                ctx.moveTo(0, y * CityBuilder.MapScale);
-                ctx.lineTo(width, y * CityBuilder.MapScale);
-            }
-        }
-        ctx.stroke();
-
-        // 6. Gebäude zeichnen
-        if (CityBuilder.Data) {
-            for (let b of CityBuilder.Data) {
-                let type = b.type || 'generic_building';
-                if (type.includes('street') || b.name === 'Road') type = 'street';
-                if (b.street_level === 0 && type !== 'street') type = 'roadless';
-
-                const bx = parseInt(b.x || 0) * CityBuilder.MapScale;
-                const by = parseInt(b.y || 0) * CityBuilder.MapScale;
-                const bw = parseInt(b.width || 1) * CityBuilder.MapScale;
-                const bh = parseInt(b.height || 1) * CityBuilder.MapScale;
-
-                let bgColor = '#ccc';
-                if (type === 'street') bgColor = '#333333';
-                else if (type === 'roadless') bgColor = '#8A2BE2';
-                else if (type === 'main_building') bgColor = '#FFD700';
-                else if (type === 'greatbuilding') bgColor = '#FF4500';
-                else {
-                    // CSS Variable lesen (mit try catch, da getComputedStyle manchmal zickt)
-                    try {
-                        let cssVar = getComputedStyle(document.documentElement).getPropertyValue(`--background-color-${type}`).trim();
-                        if (cssVar) bgColor = cssVar;
-                        else bgColor = '#87CEEB';
-                    } catch(e) { bgColor = '#87CEEB'; }
-
-                    if (b.street_level === 0) bgColor = '#8A2BE2';
-                }
-
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(bx, by, bw, bh);
-
-                if (type !== 'street') {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(bx, by, bw, bh);
-                }
-            }
-        }
-
-        // 7. Outline
-        if (areas.length > 0) {
-            CityBuilder.drawCanvasOutline(ctx, areas);
-        }
-    },
-
-
-    /**
-     * Zeichnet den Umriss der Stadtkarte auf das Canvas
-     */
-    drawCanvasOutline: (ctx, areas) => {
-        let edges = {};
-
-        const addEdge = (x1, y1, x2, y2) => {
-            const key = x1 < x2 || (x1 === x2 && y1 < y2)
-                ? `${x1},${y1}-${x2},${y2}`
-                : `${x2},${y2}-${x1},${y1}`;
-            if (edges[key]) {
-                delete edges[key];
-            } else {
-                edges[key] = { x1, y1, x2, y2 };
-            }
-        };
-
-        for (let area of areas) {
-            const x = parseInt(area.x);
-            const y = parseInt(area.y);
-            const w = parseInt(area.width || 16);
-            const h = parseInt(area.length || area.height || 16);
-
-            addEdge(x, y, x + w, y);
-            addEdge(x + w, y, x + w, y + h);
-            addEdge(x + w, y + h, x, y + h);
-            addEdge(x, y + h, x, y);
-        }
-
-        ctx.strokeStyle = '#CCFF00';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        for (let key in edges) {
-            let edge = edges[key];
-            ctx.moveTo(edge.x1 * CityBuilder.MapScale, edge.y1 * CityBuilder.MapScale);
-            ctx.lineTo(edge.x2 * CityBuilder.MapScale, edge.y2 * CityBuilder.MapScale);
-        }
-        ctx.stroke();
-    },
-
-
-    /**
-     * HTML für ein einzelnes Gebäude erzeugen
-     */
-    placeBuilding: (building) => {
-        let type = building.type || 'generic_building';
-
-        // Straßen explizit als Typ setzen, damit CSS greift
-        if (type === 'street' || building.name === 'Road') {
-            type = 'street';
-        }
-
-        let street = (building.street_level === 0 && type !== 'street') ? ' roadless' : '';
-
-        const x = parseInt(building.x);
-        const y = parseInt(building.y);
-        const w = parseInt(building.width);
-        const h = parseInt(building.height);
-
-        if (isNaN(x) || isNaN(y) || isNaN(w) || isNaN(h)) return '';
-
-        // Tooltip-Attribute (Straßen brauchen meist keinen Tooltip, aber wir rendern das Element trotzdem)
-        // Wir geben Straßen keine 'helperTT' Klasse, damit kein leeres Popup kommt
-        let tooltipClass = (type === 'street') ? '' : 'helperTT';
-
-        let tooltipAttrs = `
+    let tooltipAttrs = `
             class="map-building ${type}${street} ${tooltipClass}" 
             data-callback_tt="Tooltips.buildingTT" 
             data-meta_id="${building.asset_id}" 
@@ -371,133 +410,166 @@ let CityBuilder = {
             data-size="${h}x${w}"
         `;
 
-        return `
+    return `
             <span ${tooltipAttrs} class="map-building ${type}${street}"
                 style="left:${x * CityBuilder.MapScale}px;top:${y * CityBuilder.MapScale}px;width:${w * CityBuilder.MapScale}px;height:${h * CityBuilder.MapScale}px;">
             </span>
         `;
-    },
+  },
 
+  MergeData: async () => {
+    let mapData = MainParser.CityMapData;
+    const entities = MainParser.CityEntities;
 
-    MergeData: async ()=> {
-        let mapData = MainParser.CityMapData;
-        const entities = MainParser.CityEntities;
+    if (ActiveMap === 'era_outpost') mapData = CityMap.EraOutpostData;
+    else if (ActiveMap === 'guild_raids') mapData = CityMap.QIData;
+    else if (ActiveMap === 'cultural_outpost')
+      mapData = CityMap.CulturalOutpostData;
 
-        if (ActiveMap === 'era_outpost') mapData = CityMap.EraOutpostData;
-        else if (ActiveMap === 'guild_raids') mapData = CityMap.QIData;
-        else if (ActiveMap === 'cultural_outpost') mapData = CityMap.CulturalOutpostData;
+    if (
+      !mapData ||
+      typeof mapData !== 'object' ||
+      !entities ||
+      typeof entities !== 'object'
+    ) {
+      console.error('Daten nicht gefunden oder ungültig!', {
+        mapData,
+        entities,
+        ActiveMap,
+      });
+      $('#CityBuilderBoxBody').html(
+        '<div style="padding:20px; color:red;">' +
+          i18n('Boxes.CityBuilder.NoData') +
+          '</div>',
+      );
+      return;
+    }
 
-        if (!mapData || typeof mapData !== 'object' || !entities || typeof entities !== 'object') {
-            console.error("Daten nicht gefunden oder ungültig!", {mapData, entities, ActiveMap});
-            $('#CityBuilderBoxBody').html('<div style="padding:20px; color:red;">' + i18n('Boxes.CityBuilder.NoData') + '</div>');
-            return;
-        }
+    let buildingsInput = [];
 
-        let buildingsInput = [];
+    for (const [id, instance] of Object.entries(mapData)) {
+      if (!instance) continue;
 
-        for (const [id, instance] of Object.entries(mapData)) {
-            if (!instance) continue;
+      // Filter
+      if (instance.x < 0 || instance.y < 0) continue;
+      if (instance.type === 'street' || instance.type === 'off_grid') continue;
 
-            // Filter
-            if (instance.x < 0 || instance.y < 0) continue;
-            if (instance.type === 'street' || instance.type === 'off_grid') continue;
+      const meta = entities[instance.cityentity_id];
+      if (!meta) continue;
 
-            const meta = entities[instance.cityentity_id];
-            if (!meta) continue;
+      // Größe ermitteln (Deep Check)
+      let b_width = meta.width;
+      let b_height = meta.length;
 
-            // Größe ermitteln (Deep Check)
-            let b_width = meta.width;
-            let b_height = meta.length;
+      if (meta.components?.AllAge?.placement?.size) {
+        b_width = meta.components.AllAge.placement.size.x;
+        b_height = meta.components.AllAge.placement.size.y;
+      }
 
-            if (meta.components?.AllAge?.placement?.size) {
-                b_width = meta.components.AllAge.placement.size.x;
-                b_height = meta.components.AllAge.placement.size.y;
-            }
+      // Fallback
+      if (!b_width) b_width = 1;
+      if (!b_height) b_height = 1;
 
-            // Fallback
-            if (!b_width) b_width = 1;
-            if (!b_height) b_height = 1;
+      b_width = parseInt(b_width);
+      b_height = parseInt(b_height);
+      let b_x = parseInt(instance.x);
+      let b_y = parseInt(instance.y);
 
-            b_width = parseInt(b_width);
-            b_height = parseInt(b_height);
-            let b_x = parseInt(instance.x);
-            let b_y = parseInt(instance.y);
+      // Straßen-Logik
+      let reqStreet = 0;
+      if (meta.components?.AllAge?.streetConnectionRequirement) {
+        reqStreet =
+          meta.components.AllAge.streetConnectionRequirement.requiredLevel;
+      } else if (meta.components?.streetConnectionRequirement) {
+        reqStreet = meta.components.streetConnectionRequirement.requiredLevel;
+      } else if (
+        meta.requirements &&
+        meta.requirements.street_connection_level
+      ) {
+        reqStreet = meta.requirements.street_connection_level;
+      }
 
-            // Straßen-Logik
-            let reqStreet = 0;
-            if (meta.components?.AllAge?.streetConnectionRequirement) {
-                reqStreet = meta.components.AllAge.streetConnectionRequirement.requiredLevel;
-            } else if (meta.components?.streetConnectionRequirement) {
-                reqStreet = meta.components.streetConnectionRequirement.requiredLevel;
-            } else if (meta.requirements && meta.requirements.street_connection_level) {
-                reqStreet = meta.requirements.street_connection_level;
-            }
+      if (
+        [
+          'greatbuilding',
+          'main_building',
+          'residential',
+          'production',
+          'goods',
+        ].includes(instance.type)
+      ) {
+        if (reqStreet === 0) reqStreet = 1;
+      }
+      if (instance.type === 'decoration') reqStreet = 0;
 
-            if (['greatbuilding', 'main_building', 'residential', 'production', 'goods'].includes(instance.type)) {
-                if (reqStreet === 0) reqStreet = 1;
-            }
-            if (instance.type === 'decoration') reqStreet = 0;
+      buildingsInput.push({
+        id: instance.id,
+        asset_id: instance.cityentity_id,
+        name: meta.name,
+        type: instance.type,
+        x: b_x,
+        y: b_y,
+        width: b_width,
+        height: b_height,
+        street_level: reqStreet,
+      });
+    }
 
-            buildingsInput.push({
-                id: instance.id,
-                asset_id: instance.cityentity_id,
-                name: meta.name,
-                type: instance.type,
-                x: b_x,
-                y: b_y,
-                width: b_width,
-                height: b_height,
-                street_level: reqStreet
-            });
-        }
+    CityBuilder.CalculateNewCity(buildingsInput);
+  },
 
-        CityBuilder.CalculateNewCity(buildingsInput);
-    },
+  CalculateNewCity: (buildingsInput) => {
+    const mapData = CityMap.Main.unlockedAreas;
 
+    if (
+      !mapData ||
+      (Array.isArray(mapData) && mapData.length === 0) ||
+      (typeof mapData === 'object' && Object.keys(mapData).length === 0)
+    ) {
+      console.error('Keine freigeschalteten Gebiete gefunden!', mapData);
+      $('#CityBuilderBoxBody').html(
+        '<div style="padding:20px; color:red;">Fehler: Keine freigeschalteten Gebiete gefunden!</div>',
+      );
+      return;
+    }
 
-    CalculateNewCity: (buildingsInput)=> {
+    const blob = new Blob([CityBuilder.WorkerCode], {
+      type: 'application/javascript',
+    });
+    const workerUrl = URL.createObjectURL(blob);
+    const worker = new Worker(workerUrl);
 
-        const mapData = CityMap.Main.unlockedAreas;
+    console.log('🚀 Starte Stadt-Erstellung mit Worker...');
 
-        if (!mapData || (Array.isArray(mapData) && mapData.length === 0) || (typeof mapData === 'object' && Object.keys(mapData).length === 0)) {
-            console.error("Keine freigeschalteten Gebiete gefunden!", mapData);
-            $('#CityBuilderBoxBody').html('<div style="padding:20px; color:red;">Fehler: Keine freigeschalteten Gebiete gefunden!</div>');
-            return;
-        }
+    worker.postMessage({
+      mapData: mapData,
+      buildingsData: buildingsInput,
+    });
 
-        const blob = new Blob([CityBuilder.WorkerCode], { type: 'application/javascript' });
-        const workerUrl = URL.createObjectURL(blob);
-        const worker = new Worker(workerUrl);
+    worker.onmessage = function (e) {
+      const data = e.data;
+      if (data.success) {
+        console.log('✅ Fertig!', data.stats);
 
-        console.log("🚀 Starte Stadt-Erstellung mit Worker...");
+        // Daten übernehmen statt herunterladen
+        CityBuilder.Data = data.layout;
 
-        worker.postMessage({
-            mapData: mapData,
-            buildingsData: buildingsInput
-        });
+        // Karte anzeigen
+        CityBuilder.showMap();
+      } else {
+        console.error('❌ Fehler:', data.error);
+        $('#CityBuilderBoxBody').html(
+          '<div style="padding:20px; color:red;">Fehler: ' +
+            data.error +
+            '</div>',
+        );
+      }
+      worker.terminate();
+      URL.revokeObjectURL(workerUrl);
+    };
+  },
 
-        worker.onmessage = function(e) {
-            const data = e.data;
-            if (data.success) {
-                console.log("✅ Fertig!", data.stats);
-
-                // Daten übernehmen statt herunterladen
-                CityBuilder.Data = data.layout;
-
-                // Karte anzeigen
-                CityBuilder.showMap();
-
-            } else {
-                console.error("❌ Fehler:", data.error);
-                $('#CityBuilderBoxBody').html('<div style="padding:20px; color:red;">Fehler: ' + data.error + '</div>');
-            }
-            worker.terminate();
-            URL.revokeObjectURL(workerUrl);
-        };
-    },
-
-
-    WorkerCode: `class CityOptimizerBrowser {
+  WorkerCode: `class CityOptimizerBrowser {
             constructor(mapData, buildingsData) {
                 this.grid = new Map();
                 this.buildings = [];

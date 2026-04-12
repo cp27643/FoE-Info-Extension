@@ -12,137 +12,145 @@
  */
 
 #MarketOffers {
-    top: 100px;
-    right: 100px;
-    width: 650px;
-    height: 500px;
+  top: 100px;
+  right: 100px;
+  width: 650px;
+  height: 500px;
 }
 
 #MarketOffers #MarketOffersBody {
-    overflow-y: auto;
-    min-height: 10px;
-    max-height: 2160px;
+  overflow-y: auto;
+  min-height: 10px;
+  max-height: 2160px;
 }
 
 #MarketOffers #MarketOffersBody table th {
-    cursor: pointer;
-    font-size: 85%;
+  cursor: pointer;
+  font-size: 85%;
 }
 
 #MarketOffers #MarketOffersBody td {
-    position: relative;
-    font-size: 85%;
-    vertical-align: middle;
-    text-align: center;
+  position: relative;
+  font-size: 85%;
+  vertical-align: middle;
+  text-align: center;
 }
 
 #MarketOffers #MarketOffersBody td button {
-    font-size: 85%;
-    padding: 0 0.3rem 0.3rem;
+  font-size: 85%;
+  padding: 0 0.3rem 0.3rem;
 }
 
 #MarketOffers #MarketOffersBody td span.custom-option.era {
-    font-weight: bold;
-    font-size: 0.9rem;
+  font-weight: bold;
+  font-size: 0.9rem;
 }
 
 #MarketOffers #MarketOffersBody td span.custom-option:not(.era) {
-    padding-left: 20px;
+  padding-left: 20px;
 }
 
 #MarketOffers #MarketOffersBody th {
-    text-align: center;
+  text-align: center;
 }
 
 #MarketOffers #MarketOffersBody .filters select {
-    width: 160px;
+  width: 160px;
 }
 
 #MarketOffers #MarketOffersBody td.goods-image {
-    padding: 0;
-    background-color: var(--black-50);
-    }
+  padding: 0;
+  background-color: var(--black-50);
+}
 
 #MarketOffers #MarketOffersBody .sprite-35 {
-    width: 25px;
-    height: 25px;
-    text-align: center;
+  width: 25px;
+  height: 25px;
+  text-align: center;
 }
 
 #MarketOffers #MarketOffersBody .sprite-35::before {
-    overflow: hidden;
-    position: static;
-    display: inline-block;
+  overflow: hidden;
+  position: static;
+  display: inline-block;
 }
 
 #MarketOffersEvents {
-    top: 100px;
-    right: 100px;
-    width: 650px;
-    height: 500px;
+  top: 100px;
+  right: 100px;
+  width: 650px;
+  height: 500px;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody {
-    overflow-y: auto;
-    min-height: 10px;
-    max-height: 2160px;
+  overflow-y: auto;
+  min-height: 10px;
+  max-height: 2160px;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody table th {
-    cursor: pointer;
-    font-size: 85%;
+  cursor: pointer;
+  font-size: 85%;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody td {
-    position: relative;
-    font-size: 85%;
-    vertical-align: middle;
+  position: relative;
+  font-size: 85%;
+  vertical-align: middle;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody td span.custom-option.era {
-    font-weight: bold;
-    font-size: 0.9rem;
+  font-weight: bold;
+  font-size: 0.9rem;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody td span.custom-option:not(.era) {
-    padding-left: 20px;
+  padding-left: 20px;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody .filters th {
-    text-align: center;
+  text-align: center;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody .filters select {
-    width: 160px;
+  width: 160px;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody td.goods-image {
-    padding: 0;
-    background-color: var(--black-50);
+  padding: 0;
+  background-color: var(--black-50);
 }
 
 #MarketOffersEvents #MarketOffersEventsBody .sprite-35 {
-    width: 25px;
-    height: 25px;
-    text-align: center;
+  width: 25px;
+  height: 25px;
+  text-align: center;
 }
 
 #MarketOffersEvents #MarketOffersEventsBody .sprite-35::before {
-    overflow: hidden;
-    position: static;
-    display: inline-block;
+  overflow: hidden;
+  position: static;
+  display: inline-block;
 }
 
-#MarketOffersEvents #MarketOffersEventsBody table .sorter-header .ascending:after {
-    content: "↑";
-    color: var(--bright-color);
-    left: 4px;
-    position: relative;
+#MarketOffersEvents
+  #MarketOffersEventsBody
+  table
+  .sorter-header
+  .ascending:after {
+  content: '↑';
+  color: var(--bright-color);
+  left: 4px;
+  position: relative;
 }
 
-#MarketOffersEvents #MarketOffersEventsBody table .sorter-header .descending:after {
-    content: "↓";
-    color: var(--bright-color);
-    left: 4px;
-    position: relative;
+#MarketOffersEvents
+  #MarketOffersEventsBody
+  table
+  .sorter-header
+  .descending:after {
+  content: '↓';
+  color: var(--bright-color);
+  left: 4px;
+  position: relative;
 }

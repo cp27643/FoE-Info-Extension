@@ -12,95 +12,97 @@
  */
 
 #outpostConsumables {
-	top: 30%;
-	right: 15%;
-	width: 720px;
+  top: 30%;
+  right: 15%;
+  width: 720px;
 }
 
 #outpostConsumablesBody {
-	overflow: auto;
+  overflow: auto;
 }
 
 #outpostConsumables #outpostConsumablesBody tr.total-row td {
-	border-top: 2px solid #efcf9a;
-	font-weight: 700;
+  border-top: 2px solid #efcf9a;
+  font-weight: 700;
 }
 
 #outpostConsumables #outpostConsumablesBody tr.resource-row td {
-	color: var(--bright-color);
-	font-weight: 700;
+  color: var(--bright-color);
+  font-weight: 700;
 }
 
 #outpostConsumables #outpostConsumablesBody .text-danger {
-	color: #ff4040;
-	font-weight: 700;
+  color: #ff4040;
+  font-weight: 700;
 }
 
 #outpostConsumables #outpostConsumablesBody .text-success {
-	color: var(--text-success);
-	font-weight: 700;
+  color: var(--text-success);
+  font-weight: 700;
 }
 
 #outpostConsumables #outpostConsumablesBody .text-muted {
-	color: var(--text-muted);
+  color: var(--text-muted);
 }
 
 #outpostConsumables #outpostConsumablesBody .diplomacy-ask {
-	font-weight: 700;
-	display: inline-block;
-	margin-left: 6px;
-	background: var(--text-info);
-	padding: 0 4px;
-	border-radius: 50%;
-	width: 10px;
-	line-height: 1.3em;
-	position: relative;
+  font-weight: 700;
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--text-info);
+  padding: 0 4px;
+  border-radius: 50%;
+  width: 10px;
+  line-height: 1.3em;
+  position: relative;
 }
 
 #outpostConsumables #outpostConsumablesBody .diplomacy-tip {
-	position: absolute;
-	white-space: nowrap;
-	text-align: left;
-	background: rgba(0,0,0, 0.7);
-	padding: 5px;
-	right: 6px;
-	bottom: 6px;
-	z-index: 1000;
-	display: none;
+  position: absolute;
+  white-space: nowrap;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 5px;
+  right: 6px;
+  bottom: 6px;
+  z-index: 1000;
+  display: none;
 }
 
-#outpostConsumables #outpostConsumablesBody .diplomacy-ask:hover .diplomacy-tip {
-	display: block;
+#outpostConsumables
+  #outpostConsumablesBody
+  .diplomacy-ask:hover
+  .diplomacy-tip {
+  display: block;
 }
 
 #outpostConsumables #outpostConsumablesBody .sprite-50 {
-	width: 34px;
-	height: 34px;
-	vertical-align: center;
+  width: 34px;
+  height: 34px;
+  vertical-align: center;
 }
 
 #outpostConsumables .info-line {
-	display: flex;
-	justify-content: space-between;
-	margin: 5px;
+  display: flex;
+  justify-content: space-between;
+  margin: 5px;
 }
 
-#outpostConsumables td>label,
-#outpostConsumables td>label>span {
-	width: 100%;
-	display: inline-block;
+#outpostConsumables td > label,
+#outpostConsumables td > label > span {
+  width: 100%;
+  display: inline-block;
 }
 
-#outpostConsumables input[type=radio] {
-	display: none;
+#outpostConsumables input[type='radio'] {
+  display: none;
 }
-
 
 #outpostConsumables .selected,
-#outpostConsumables input[type=radio]:checked ~ span {
-	background-color: rgba(0,255,0,0.2);
+#outpostConsumables input[type='radio']:checked ~ span {
+  background-color: rgba(0, 255, 0, 0.2);
 }
 
-#outpostConsumables input[type=radio]:checked ~ span.outpost_tile_off {
-	background-color: rgba(255,0,0,0.2);
+#outpostConsumables input[type='radio']:checked ~ span.outpost_tile_off {
+  background-color: rgba(255, 0, 0, 0.2);
 }

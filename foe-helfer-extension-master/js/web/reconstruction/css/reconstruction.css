@@ -11,32 +11,30 @@
  * **************************************************************************************
  */
 
-
 #ReconstructionListBody {
-    overflow-y: auto;
+  overflow-y: auto;
 }
 #ReconstructionList {
-    height: 400px;
+  height: 400px;
 }
 
-#ReconstructionListBody td:nth-last-child(2){
+#ReconstructionListBody td:nth-last-child(2) {
   padding-right: 0;
   text-align: right;
 }
 
-#ReconstructionListBody td:nth-child(3){
+#ReconstructionListBody td:nth-child(3) {
   text-align: center;
   min-width: 50px;
 }
 
-#ReconstructionListBody tr.sorter-header th:last-child:before, 
+#ReconstructionListBody tr.sorter-header th:last-child:before,
 #ReconstructionListBody tr.sorter-header th:last-child:after {
   left: 5px;
 }
 
-
-#ReconstructionMap.window-box, 
-#ReconstructionMap .window-body, 
+#ReconstructionMap.window-box,
+#ReconstructionMap .window-body,
 #ReconstructionMap .window-head {
   background: none;
   box-shadow: none;
@@ -54,7 +52,7 @@
   text-align: right;
 }
 #ReconstructionMap {
-    left: calc(min(max(50vw + var(--x)),100vw - 60px)) !important;
+  left: calc(min(max(50vw + var(--x)), 100vw - 60px)) !important;
 }
 #ReconstructionMap .window-head {
   padding: 2px;
@@ -66,13 +64,13 @@
 #ReconstructionMap .window-head:hover {
   background: var(--black-30);
 }
-#ReconstructionMap .window-grippy, 
-#ReconstructionMap .window-head, 
+#ReconstructionMap .window-grippy,
+#ReconstructionMap .window-head,
 #ReconstructionMap .settingsbox-wrapper {
   pointer-events: all;
 }
 #ReconstructionMap .settingsbox-wrapper {
-  filter: saturate(0.5)
+  filter: saturate(0.5);
 }
 #ReconstructionMap .window-grippy {
   background-color: var(--black-65);
@@ -103,7 +101,8 @@
   --scale-y: calc(0.25 * var(--scale) / 100);
   --tx: calc((-296289 / var(--scale) + 1471) * 1px);
   --ty: calc((-104533 / var(--scale) + 212) * 1px);
-  transform: skewX(-63.5deg) skewY(14deg) scale(var(--scale-x), var(--scale-y)) translate(var(--tx), var(--ty));
+  transform: skewX(-63.5deg) skewY(14deg) scale(var(--scale-x), var(--scale-y))
+    translate(var(--tx), var(--ty));
   opacity: 0.9;
 }
 .map-grid-wrapper .map-bg {
@@ -121,26 +120,26 @@
 .map-grid-wrapper .map-building {
   position: absolute;
   box-sizing: border-box;
-	background-color: var(--background-color-residential);
-	border: 1px solid var(--border-color-residential);
+  background-color: var(--background-color-residential);
+  border: 1px solid var(--border-color-residential);
 }
 .map-building.production {
-	background-color: var(--background-color-production);
-	border-color: var(--border-color-production);
+  background-color: var(--background-color-production);
+  border-color: var(--border-color-production);
 }
 .map-building.greatbuilding {
-	background-color: var(--background-color-greatbuilding);
-	border-color: var(--border-color-greatbuilding);
+  background-color: var(--background-color-greatbuilding);
+  border-color: var(--border-color-greatbuilding);
 }
 .map-building.main_building {
-	background-color: var(--background-color-main_building);
-	border-color: var(--border-color-main_building);
+  background-color: var(--background-color-main_building);
+  border-color: var(--border-color-main_building);
 }
 .map-building.roadless {
-	background-color: var(--background-color-noStreet);
-	border-color: var(--border-color-noStreet);
+  background-color: var(--background-color-noStreet);
+  border-color: var(--border-color-noStreet);
 }
 .map-building.street {
-	background-color: var(--background-color-street);
-	border-color: var(--border-color-street);
+  background-color: var(--background-color-street);
+  border-color: var(--border-color-street);
 }

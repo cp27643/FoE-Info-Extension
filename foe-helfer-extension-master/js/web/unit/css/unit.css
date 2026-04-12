@@ -12,16 +12,16 @@
  */
 
 #UnitOverview {
-	left: calc(50vw - 250px);
-	top: calc(50vh - 250px);
-	width: 420px;
-	height: 460px;
-	min-width: 283px;
-	min-height: 46px;
+  left: calc(50vw - 250px);
+  top: calc(50vh - 250px);
+  width: 420px;
+  height: 460px;
+  min-width: 283px;
+  min-height: 46px;
 }
 
 #UnitOverview .unit-tabs {
-	height: calc(100% - 40px);
+  height: calc(100% - 40px);
 }
 
 #UnitOverview #attack,
@@ -29,106 +29,114 @@
 #UnitOverview #arenaDefense,
 #UnitOverview #pool,
 #UnitOverview #alca {
-	height: 100%;
-	overflow: hidden;
-	overflow-y: auto;
+  height: 100%;
+  overflow: hidden;
+  overflow-y: auto;
 }
 
 #UnitOverview #alca-timer {
-	padding: 4px;
-	height: 32px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+  padding: 4px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #UnitOverview .health {
-	display: block;
-	background-color: #821212;
-	position: relative;
-	width: 80px;
-	border-radius: 2px;
-	height: 15px;
+  display: block;
+  background-color: #821212;
+  position: relative;
+  width: 80px;
+  border-radius: 2px;
+  height: 15px;
 }
 
 #UnitOverview .health .bar {
-	position: relative;
-	background-color: #138a21;
-	height: 15px;
-	display: block;
-	border-radius: 2px;
+  position: relative;
+  background-color: #138a21;
+  height: 15px;
+  display: block;
+  border-radius: 2px;
 }
 
 #UnitOverview .percent {
-	display: block;
-	text-align: center;
-	font-size: 75%;
-	width: 80px;
-	top: 0;
-	left: 0;
-	position: absolute;
+  display: block;
+  text-align: center;
+  font-size: 75%;
+  width: 80px;
+  top: 0;
+  left: 0;
+  position: absolute;
 }
 
 #UnitOverview table.foe-table th {
-	border-top: 1px solid var(--border-table-top);
-	position: sticky;
-	top: 24px;
-	z-index: 1;
+  border-top: 1px solid var(--border-table-top);
+  position: sticky;
+  top: 24px;
+  z-index: 1;
 }
 
 #UnitOverview .head-sticky th {
-	border-top: unset !important;
-	top: 0 !important;
+  border-top: unset !important;
+  top: 0 !important;
 }
 
 #UnitOverview li.attack {
-	background: linear-gradient(#8a3f3f, #5e1c1c);
-	box-shadow: inset 0 1px 1px #352222, inset 0 2px 0 #c75d5d, 0 -1px 3px #000;
+  background: linear-gradient(#8a3f3f, #5e1c1c);
+  box-shadow:
+    inset 0 1px 1px #352222,
+    inset 0 2px 0 #c75d5d,
+    0 -1px 3px #000;
 }
 
 #UnitOverview li.defense {
-	background: linear-gradient(#375b99, #09286b);
-	box-shadow: inset 0 1px 1px #352222, inset 0 2px 0 #7879a9, 0 -1px 3px #000;
+  background: linear-gradient(#375b99, #09286b);
+  box-shadow:
+    inset 0 1px 1px #352222,
+    inset 0 2px 0 #7879a9,
+    0 -1px 3px #000;
 }
 
 #UnitOverview li.arenaDefense {
-	background: linear-gradient(#d3a543, #a07930);
-	box-shadow: inset 0 1px 1px #352e22, inset 0 2px 0 #ffc958, 0 -1px 3px #000;
+  background: linear-gradient(#d3a543, #a07930);
+  box-shadow:
+    inset 0 1px 1px #352e22,
+    inset 0 2px 0 #ffc958,
+    0 -1px 3px #000;
 }
 
 #UnitOverview #UnitOverviewBody .tabs ul li a span {
-	width: 21px;
-	top: 6px;
-	background: url('../images/unit_tab_icon.png') 0 6px no-repeat;
-	background-size: 126px 20px;
+  width: 21px;
+  top: 6px;
+  background: url('../images/unit_tab_icon.png') 0 6px no-repeat;
+  background-size: 126px 20px;
 }
 
 #UnitOverview #UnitOverviewBody .tabs ul li.defense a span {
-	background-position: -21px 6px;
+  background-position: -21px 6px;
 }
 
 #UnitOverview #UnitOverviewBody .tabs ul li.arenaDefense a span {
-	background-position: -42px 6px;
+  background-position: -42px 6px;
 }
 
 #UnitOverview #UnitOverviewBody .tabs ul li.pool a span {
-	background-position: -63px 6px;
+  background-position: -63px 6px;
 }
 
 #UnitOverview #UnitOverviewBody .tabs ul li.alca a span {
-	background-position: -84px 6px;
+  background-position: -84px 6px;
 }
 
-#UnitOverviewSettingsBox input:invalid+button+span:after {
-	content: '❌';
+#UnitOverviewSettingsBox input:invalid + button + span:after {
+  content: '❌';
 }
 
-#UnitOverviewSettingsBox input:valid+button+span:after {
-	content: '✔️';
+#UnitOverviewSettingsBox input:valid + button + span:after {
+  content: '✔️';
 }
-
 
 #UnitOverview #UnitOverviewBody .unit_skill::after {
-	top: calc(28px*var(--unit_scale));
-	left: calc(28px*var(--unit_scale));
+  top: calc(28px * var(--unit_scale));
+  left: calc(28px * var(--unit_scale));
 }

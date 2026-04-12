@@ -12,264 +12,302 @@
  */
 
 FoEproxy.addHandler('MergerGameService', 'all', (data, postData) => {
-	
-	if (data.requestMethod != "getOverview" && data.requestMethod != "resetBoard") return;
-	//Do not show window if deactivated in settings
-	if(!Settings.GetSetting('ShowEventChest') || !(Settings.GetSetting('EventHelperMerge') === undefined ? true : Settings.GetSetting('EventHelperMerge'))) {
-		return;
-	}
-	let board = data.responseData.board || data.responseData;
-	if (!mergerGame.state.day) mergerGame.state.day = moment.unix(GameTime.get()).dayOfYear()
+  if (data.requestMethod != 'getOverview' && data.requestMethod != 'resetBoard')
+    return;
+  //Do not show window if deactivated in settings
+  if (
+    !Settings.GetSetting('ShowEventChest') ||
+    !(Settings.GetSetting('EventHelperMerge') === undefined ?
+      true
+    : Settings.GetSetting('EventHelperMerge'))
+  ) {
+    return;
+  }
+  let board = data.responseData.board || data.responseData;
+  if (!mergerGame.state.day)
+    mergerGame.state.day = moment.unix(GameTime.get()).dayOfYear();
 
-	if (data.requestMethod == "resetBoard") {
-		if (mergerGame.state.day == moment.unix(GameTime.get()).dayOfYear())  {//gleicher Tag wie zuvor
-			mergerGame.state.daily.progress += mergerGame.state.progress;
-			mergerGame.state.daily.energyUsed += mergerGame.state.energyUsed;
-			mergerGame.state.daily.keys += mergerGame.state.keys;		
-		} else {
-			mergerGame.state.daily={progress:0,keys:0,energyUsed:0}
-		}
-		mergerGame.state.day = moment.unix(GameTime.get()).dayOfYear()
-	}
-	mergerGame.event = board.context.replace("_event","")
-	mergerGame.cells = board.cells;
-	mergerGame.levelValues = board?.lookup?.pieceConfig[0]?.grandPrizeProgress || {1:1,2:2,3:3,4:4};
-	if (board?.lookup?.keyConversion) {
-		mergerGame.keyValues = {};
-		for (x of board?.lookup?.keyConversion) {
-			mergerGame.keyValues[x.level] = x.amount;
-		}
-	}
-	mergerGame.lookup = board?.lookup
-	mergerGame.spawnCost = board?.cells[1]?.spawnCost?.resources[mergerGame.eventData[mergerGame.event].currency] || 10;
-	mergerGame.state["maxProgress"]= 0;
-	mergerGame.state["energyUsed"]= 0;
-	mergerGame.state["progress"]= 0;
-	mergerGame.state["keys"]= 0;
-	mergerGame.colors = mergerGame.eventData[mergerGame.event].colors;
-	mergerGame.types = mergerGame.eventData[mergerGame.event].types;
-	for (let x of mergerGame.cells) {
-		if (x.isFixed) mergerGame.state.maxProgress += mergerGame.levelValues[x.level];
-	};
-	for (let x of mergerGame.cells[0].spawnChances) {
-		if (!x) continue;
-		if (!mergerGame.spawnChances[x.type.value]) mergerGame.spawnChances[x.type.value] = {}
-		mergerGame.spawnChances[x.type.value][x.level] = x.spawnChance;
-	}
-	mergerGame.updateTable();
-	
-	if (data.requestMethod == "getOverview") {
-		//mergerGame.checkSave();
-		mergerGame.ShowDialog();
-	} else { //resetBoard
-		mergerGame.state.energyUsed += (mergerGame.settings.useAverage && mergerGame.settings.useAverage > 0) ? mergerGame.settings.useAverage : mergerGame.resetCost;
-		//mergerGame.saveState();
-		mergerGame.updateDialog();
-	}
-	if (mergerGame.state.progress == mergerGame.state.maxProgress) {
-		mergerGame.resetCost = 0;
-	} else {
-		mergerGame.resetCost = board.resetCost?.resources[mergerGame.eventData[mergerGame.event].currency] || 0;
-	}
-	
+  if (data.requestMethod == 'resetBoard') {
+    if (mergerGame.state.day == moment.unix(GameTime.get()).dayOfYear()) {
+      //gleicher Tag wie zuvor
+      mergerGame.state.daily.progress += mergerGame.state.progress;
+      mergerGame.state.daily.energyUsed += mergerGame.state.energyUsed;
+      mergerGame.state.daily.keys += mergerGame.state.keys;
+    } else {
+      mergerGame.state.daily = { progress: 0, keys: 0, energyUsed: 0 };
+    }
+    mergerGame.state.day = moment.unix(GameTime.get()).dayOfYear();
+  }
+  mergerGame.event = board.context.replace('_event', '');
+  mergerGame.cells = board.cells;
+  mergerGame.levelValues = board?.lookup?.pieceConfig[0]
+    ?.grandPrizeProgress || { 1: 1, 2: 2, 3: 3, 4: 4 };
+  if (board?.lookup?.keyConversion) {
+    mergerGame.keyValues = {};
+    for (x of board?.lookup?.keyConversion) {
+      mergerGame.keyValues[x.level] = x.amount;
+    }
+  }
+  mergerGame.lookup = board?.lookup;
+  mergerGame.spawnCost =
+    board?.cells[1]?.spawnCost?.resources[
+      mergerGame.eventData[mergerGame.event].currency
+    ] || 10;
+  mergerGame.state['maxProgress'] = 0;
+  mergerGame.state['energyUsed'] = 0;
+  mergerGame.state['progress'] = 0;
+  mergerGame.state['keys'] = 0;
+  mergerGame.colors = mergerGame.eventData[mergerGame.event].colors;
+  mergerGame.types = mergerGame.eventData[mergerGame.event].types;
+  for (let x of mergerGame.cells) {
+    if (x.isFixed)
+      mergerGame.state.maxProgress += mergerGame.levelValues[x.level];
+  }
+  for (let x of mergerGame.cells[0].spawnChances) {
+    if (!x) continue;
+    if (!mergerGame.spawnChances[x.type.value])
+      mergerGame.spawnChances[x.type.value] = {};
+    mergerGame.spawnChances[x.type.value][x.level] = x.spawnChance;
+  }
+  mergerGame.updateTable();
+
+  if (data.requestMethod == 'getOverview') {
+    //mergerGame.checkSave();
+    mergerGame.ShowDialog();
+  } else {
+    //resetBoard
+    mergerGame.state.energyUsed +=
+      mergerGame.settings.useAverage && mergerGame.settings.useAverage > 0 ?
+        mergerGame.settings.useAverage
+      : mergerGame.resetCost;
+    //mergerGame.saveState();
+    mergerGame.updateDialog();
+  }
+  if (mergerGame.state.progress == mergerGame.state.maxProgress) {
+    mergerGame.resetCost = 0;
+  } else {
+    mergerGame.resetCost =
+      board.resetCost?.resources[
+        mergerGame.eventData[mergerGame.event].currency
+      ] || 0;
+  }
 });
 
-
 FoEproxy.addHandler('MergerGameService', 'spawnPieces', (data, postData) => {
-	// Don't handle when module not open
-    if ($('#mergerGameDialog').length === 0) {
-		return;
-	}
-	
-	mergerGame.cells.push(data.responseData[0])
-	mergerGame.state.energyUsed += mergerGame.spawnCost;
-	mergerGame.updateTable();
-	//mergerGame.saveState();
-	mergerGame.updateDialog();
+  // Don't handle when module not open
+  if ($('#mergerGameDialog').length === 0) {
+    return;
+  }
+
+  mergerGame.cells.push(data.responseData[0]);
+  mergerGame.state.energyUsed += mergerGame.spawnCost;
+  mergerGame.updateTable();
+  //mergerGame.saveState();
+  mergerGame.updateDialog();
 });
 
 FoEproxy.addHandler('MergerGameService', 'useBooster', (data, postData) => {
-// Don't handle when module not open
-	if ($('#mergerGameDialog').length === 0) {
-		return;
-	}
+  // Don't handle when module not open
+  if ($('#mergerGameDialog').length === 0) {
+    return;
+  }
 
-	for (tile of data.responseData.updatedPieces) {
-		let target = mergerGame.cells.findIndex((e) => e.id == tile.id);
-		if (target>0) {
-			mergerGame.cells[target] = tile;
-		} else {
-			mergerGame.cells.push(tile)
-		}
-	}
+  for (tile of data.responseData.updatedPieces) {
+    let target = mergerGame.cells.findIndex((e) => e.id == tile.id);
+    if (target > 0) {
+      mergerGame.cells[target] = tile;
+    } else {
+      mergerGame.cells.push(tile);
+    }
+  }
 
-	mergerGame.updateTable();
-	//mergerGame.saveState();
-	mergerGame.updateDialog();
-
+  mergerGame.updateTable();
+  //mergerGame.saveState();
+  mergerGame.updateDialog();
 });
 
 FoEproxy.addHandler('MergerGameService', 'mergePieces', (data, postData) => {
-	// Don't handle when module not open
-    if ($('#mergerGameDialog').length === 0) {
-		return;
-	}
-	
-	let t_id = data.responseData.id;
-	let o_id = postData[0].requestData[1];
-	if (o_id==t_id) o_id = postData[0].requestData[2];
+  // Don't handle when module not open
+  if ($('#mergerGameDialog').length === 0) {
+    return;
+  }
 
-	let target = mergerGame.cells.findIndex((e) => e.id == t_id);
-	let origin = mergerGame.cells.findIndex((e) => e.id == o_id);
+  let t_id = data.responseData.id;
+  let o_id = postData[0].requestData[1];
+  if (o_id == t_id) o_id = postData[0].requestData[2];
 
-	if (mergerGame.cells[target].isFixed) mergerGame.state.progress += mergerGame.levelValues[mergerGame.cells[target].level];
-	if (mergerGame.state.progress == mergerGame.state.maxProgress) mergerGame.resetCost = 0;
+  let target = mergerGame.cells.findIndex((e) => e.id == t_id);
+  let origin = mergerGame.cells.findIndex((e) => e.id == o_id);
 
-	mergerGame.cells[target] = data.responseData;
-	mergerGame.cells.splice(origin,1);
+  if (mergerGame.cells[target].isFixed)
+    mergerGame.state.progress +=
+      mergerGame.levelValues[mergerGame.cells[target].level];
+  if (mergerGame.state.progress == mergerGame.state.maxProgress)
+    mergerGame.resetCost = 0;
 
-	mergerGame.updateTable();
-	//mergerGame.saveState();
+  mergerGame.cells[target] = data.responseData;
+  mergerGame.cells.splice(origin, 1);
 
-	mergerGame.updateDialog();
+  mergerGame.updateTable();
+  //mergerGame.saveState();
 
+  mergerGame.updateDialog();
 });
 
 FoEproxy.addHandler('MergerGameService', 'convertPiece', (data, postData) => {
-	// Don't handle when module not open
-    if ($('#mergerGameDialog').length === 0) {
-		return;
-	}
-	
-	target = mergerGame.cells.findIndex((e) => e.id == postData[0].requestData[1]);
-	
-	mergerGame.state.keys += mergerGame.keyValues[mergerGame.cells[target].level];
-	mergerGame.cells.splice(target,1);
+  // Don't handle when module not open
+  if ($('#mergerGameDialog').length === 0) {
+    return;
+  }
 
-	mergerGame.updateTable();
-	//mergerGame.saveState();
+  target = mergerGame.cells.findIndex(
+    (e) => e.id == postData[0].requestData[1],
+  );
 
-	mergerGame.updateDialog();
+  mergerGame.state.keys += mergerGame.keyValues[mergerGame.cells[target].level];
+  mergerGame.cells.splice(target, 1);
+
+  mergerGame.updateTable();
+  //mergerGame.saveState();
+
+  mergerGame.updateDialog();
 });
 
 FoEproxy.addHandler('TimedTasksService', 'all', (data, postData) => {
-	if (['getOverview','claimReward'].includes(data.requestMethod)) {
-		data.responseData.slots.forEach(slot => {
-			mergerGame.tasks[slot.type] = {
-				currentProgress: slot.task.currentProgress || 0,
-				requiredProgress: slot.task.requiredProgress,
-				rewardResource: slot.task.reward.subType,
-				rewardAmount: (slot.task.reward.amount||1)*(slot.rewardMultiplier || 1),
-				worldChallengeTokens: ({easy:1,medium:1,hard:1})[slot.type],
-				alerted: (data.requestMethod != "getOverview") && ((slot.task.currentProgress||0) >= slot.task.requiredProgress)
-			};
-		});
-	} else if (data.requestMethod == "pushTaskProgress") {
-		mergerGame.tasks[data.responseData.slotType].currentProgress = data.responseData.currentProgress;
-	} else return;
-	mergerGame.checkTaskProgress();
+  if (['getOverview', 'claimReward'].includes(data.requestMethod)) {
+    data.responseData.slots.forEach((slot) => {
+      mergerGame.tasks[slot.type] = {
+        currentProgress: slot.task.currentProgress || 0,
+        requiredProgress: slot.task.requiredProgress,
+        rewardResource: slot.task.reward.subType,
+        rewardAmount:
+          (slot.task.reward.amount || 1) * (slot.rewardMultiplier || 1),
+        worldChallengeTokens: { easy: 1, medium: 1, hard: 1 }[slot.type],
+        alerted:
+          data.requestMethod != 'getOverview' &&
+          (slot.task.currentProgress || 0) >= slot.task.requiredProgress,
+      };
+    });
+  } else if (data.requestMethod == 'pushTaskProgress') {
+    mergerGame.tasks[data.responseData.slotType].currentProgress =
+      data.responseData.currentProgress;
+  } else return;
+  mergerGame.checkTaskProgress();
 });
 
 let mergerGame = {
-	allowRemoveWarning: true,
-	tasks:{},
-	hasJoker:false,
-	event:"anniversary",
-	colors: ["white","yellow","blue","colorless"],
-	types: ["top","bottom","full"],
-	spawnCost: 5,
-	cells:[],
-	spawnChances:{white:{1:14,2:8,3:5,4:3},blue:{1:14,2:8,3:5,4:3},yellow:{1:19,2:10,3:7,4:4},defender:{1:14,2:8,3:5,4:3},attacker:{1:14,2:8,3:5,4:3},midfielder:{1:19,2:10,3:7,4:4}},
-	state: {
-		daily:{progress:0,keys:0,energyUsed:0},
-		maxProgress: 0,
-		energyUsed:0,
-		progress:0,
-		keys: 0
-	},
-	resetCost: 0,
-	levelValues: {1:1,2:1,3:1,4:2},
-	keyValues: {1:1, 2:1, 3:1, 4:3},
-	settings: Object.assign({
-		keyValue: 1.3,
-		targetProgress: 3750,
-		availableCurrency: 11000,
-		hideOverlay: true,
-		useAverage: 0,
-		audibleTaskWarning: true,
-		opticalTaskWarning: false
-	}, JSON.parse(localStorage.getItem("MergerGameSettings") || '{}')),
-	eventData:{
-		anniversary: {
-			progress:"/shared/seasonalevents/league/league_anniversary_icon_progress.png",
-			energy:"/shared/seasonalevents/anniversary/event/anniversary_energy.png",
-			colors: ["white","yellow","blue","colorless"],
-			types: ["top","bottom","full"],
-			tile:"_gem",
-			currency:`anniversary_energy`,
-		},
-		soccer:{
-			progress:"/shared/icons/reward_icons/reward_icon_soccer_trophy.png",
-			energy:"/shared/seasonalevents/soccer/event/soccer_football.png",
-			colors: ["attacker","midfielder","defender"],
-			types: ["left","right","full"],
-			tile:"_player",
-			currency:`soccer_football`,
-		},
-		care:{
-			progress:"/shared/icons/reward_icons/reward_icon_care_globe.png",
-			energy:"/shared/icons/reward_icons/reward_icon_care_worker.png",
-			colors: ["red","green","blue","colorless"],
-			types: ["top","bottom","full"],
-			tile:"",
-			currency:`care_worker`,
-		}
-	},
-	solved: {keys:0,progress:0},
-	simulation: {},
-	simResult:null,
-	hideDaily:true,
+  allowRemoveWarning: true,
+  tasks: {},
+  hasJoker: false,
+  event: 'anniversary',
+  colors: ['white', 'yellow', 'blue', 'colorless'],
+  types: ['top', 'bottom', 'full'],
+  spawnCost: 5,
+  cells: [],
+  spawnChances: {
+    white: { 1: 14, 2: 8, 3: 5, 4: 3 },
+    blue: { 1: 14, 2: 8, 3: 5, 4: 3 },
+    yellow: { 1: 19, 2: 10, 3: 7, 4: 4 },
+    defender: { 1: 14, 2: 8, 3: 5, 4: 3 },
+    attacker: { 1: 14, 2: 8, 3: 5, 4: 3 },
+    midfielder: { 1: 19, 2: 10, 3: 7, 4: 4 },
+  },
+  state: {
+    daily: { progress: 0, keys: 0, energyUsed: 0 },
+    maxProgress: 0,
+    energyUsed: 0,
+    progress: 0,
+    keys: 0,
+  },
+  resetCost: 0,
+  levelValues: { 1: 1, 2: 1, 3: 1, 4: 2 },
+  keyValues: { 1: 1, 2: 1, 3: 1, 4: 3 },
+  settings: Object.assign(
+    {
+      keyValue: 1.3,
+      targetProgress: 3750,
+      availableCurrency: 11000,
+      hideOverlay: true,
+      useAverage: 0,
+      audibleTaskWarning: true,
+      opticalTaskWarning: false,
+    },
+    JSON.parse(localStorage.getItem('MergerGameSettings') || '{}'),
+  ),
+  eventData: {
+    anniversary: {
+      progress:
+        '/shared/seasonalevents/league/league_anniversary_icon_progress.png',
+      energy: '/shared/seasonalevents/anniversary/event/anniversary_energy.png',
+      colors: ['white', 'yellow', 'blue', 'colorless'],
+      types: ['top', 'bottom', 'full'],
+      tile: '_gem',
+      currency: `anniversary_energy`,
+    },
+    soccer: {
+      progress: '/shared/icons/reward_icons/reward_icon_soccer_trophy.png',
+      energy: '/shared/seasonalevents/soccer/event/soccer_football.png',
+      colors: ['attacker', 'midfielder', 'defender'],
+      types: ['left', 'right', 'full'],
+      tile: '_player',
+      currency: `soccer_football`,
+    },
+    care: {
+      progress: '/shared/icons/reward_icons/reward_icon_care_globe.png',
+      energy: '/shared/icons/reward_icons/reward_icon_care_worker.png',
+      colors: ['red', 'green', 'blue', 'colorless'],
+      types: ['top', 'bottom', 'full'],
+      tile: '',
+      currency: `care_worker`,
+    },
+  },
+  solved: { keys: 0, progress: 0 },
+  simulation: {},
+  simResult: null,
+  hideDaily: true,
 
-	updateTable: () => {
-		mergerGame.hasJoker = false;
-		let table = {},
-			unlocked = {};
-		for (x of mergerGame.colors) {
-			table[x]={}
-			unlocked[x]={}
-			for (l of [1,2,3,4]) {
-				table[x][l]={}
-				unlocked[x][l]={}
-				for (t of mergerGame.types) {
-					table[x][l][t]=0;
-					unlocked[x][l][t]=0;
-				}
-				unlocked[x][l]["none"]=0;
-			}
-		}
-		for (let x of mergerGame.cells) {
-			if (! x.id || x.id<0) continue;
-			if (!x.keyType?.value) continue;
-			if (x?.type?.value=="colorless") mergerGame.hasJoker = true;
-			if (x.keyType.value !="none") {
-				table[x.type.value][x.level][x.keyType.value]++;
-			}
-			if (!x.isFixed) {
-				unlocked[x.type.value][x.level][x.keyType.value]++;
-			}
-		};
-		mergerGame.state["table"] = table;
-		mergerGame.state["unlocked"] = unlocked;
-		/*
+  updateTable: () => {
+    mergerGame.hasJoker = false;
+    let table = {},
+      unlocked = {};
+    for (x of mergerGame.colors) {
+      table[x] = {};
+      unlocked[x] = {};
+      for (l of [1, 2, 3, 4]) {
+        table[x][l] = {};
+        unlocked[x][l] = {};
+        for (t of mergerGame.types) {
+          table[x][l][t] = 0;
+          unlocked[x][l][t] = 0;
+        }
+        unlocked[x][l]['none'] = 0;
+      }
+    }
+    for (let x of mergerGame.cells) {
+      if (!x.id || x.id < 0) continue;
+      if (!x.keyType?.value) continue;
+      if (x?.type?.value == 'colorless') mergerGame.hasJoker = true;
+      if (x.keyType.value != 'none') {
+        table[x.type.value][x.level][x.keyType.value]++;
+      }
+      if (!x.isFixed) {
+        unlocked[x.type.value][x.level][x.keyType.value]++;
+      }
+    }
+    mergerGame.state['table'] = table;
+    mergerGame.state['unlocked'] = unlocked;
+    /*
 		if (!mergerGame.hasJoker) {
 			mergerGame.solve();
 		} else*/ {
-			mergerGame.solved = {keys:0,progress:0};
-			mergerGame.simResult = {keys:{min:"?",max:"?",average:"?"},progress:{min:"?",max:"?",average:"?"}}
-		}
-			
-	},
-	/*
+      mergerGame.solved = { keys: 0, progress: 0 };
+      mergerGame.simResult = {
+        keys: { min: '?', max: '?', average: '?' },
+        progress: { min: '?', max: '?', average: '?' },
+      };
+    }
+  },
+  /*
 	checkSave: () => {
 		let x = localStorage.getItem("mergerGameState");
 		if (!x) return;
@@ -290,102 +328,122 @@ let mergerGame = {
 		localStorage.setItem("mergerGameState",JSON.stringify(mergerGame.state))
 	},*/
 
-	keySum:() => {
-		let sum = 0;
-		for (let x of mergerGame.cells) {
-			if (x.keyType?.value == "full") sum += mergerGame.keyValues[x.level];
-		}
-		if (sum>0 && !($('#mergerGameDialog.closed').length > 0 && mergerGame.settings.hideOverlay)) {
-			if ($('#mergerGameResetBlocker').length === 0) {
-				let blocker = document.createElement("img");
-				blocker.id = 'mergerGameResetBlocker';
-				blocker.className = mergerGame.event+" helper-blocker";
-				blocker.src = srcLinks.get("/city/gui/great_building_bonus_icons/great_building_bonus_plunder_repel.png", true);
-				blocker.title = i18n("Boxes.MergerGame.KeysLeft."+mergerGame.event);
-				$('#game_body')[0].append(blocker);
-				$('#mergerGameResetBlocker').on("click",()=>{$('#mergerGameResetBlocker').remove()});
-			} 
-		} else {
-			$('#mergerGameResetBlocker').remove()
-		}
-		return mergerGame.state.keys + sum;
-	},
+  keySum: () => {
+    let sum = 0;
+    for (let x of mergerGame.cells) {
+      if (x.keyType?.value == 'full') sum += mergerGame.keyValues[x.level];
+    }
+    if (
+      sum > 0 &&
+      !(
+        $('#mergerGameDialog.closed').length > 0 &&
+        mergerGame.settings.hideOverlay
+      )
+    ) {
+      if ($('#mergerGameResetBlocker').length === 0) {
+        let blocker = document.createElement('img');
+        blocker.id = 'mergerGameResetBlocker';
+        blocker.className = mergerGame.event + ' helper-blocker';
+        blocker.src = srcLinks.get(
+          '/city/gui/great_building_bonus_icons/great_building_bonus_plunder_repel.png',
+          true,
+        );
+        blocker.title = i18n('Boxes.MergerGame.KeysLeft.' + mergerGame.event);
+        $('#game_body')[0].append(blocker);
+        $('#mergerGameResetBlocker').on('click', () => {
+          $('#mergerGameResetBlocker').remove();
+        });
+      }
+    } else {
+      $('#mergerGameResetBlocker').remove();
+    }
+    return mergerGame.state.keys + sum;
+  },
 
-    /**
-     * Shows a User Box with the current production stats
-     *
-     * @constructor
-     */
-    ShowDialog: () => {
-        
-		// Don't create a new box while another one is still open
-		if ($('#mergerGameDialog').length === 0) {
-			HTML.AddCssFile('mergergame');
-			
-			HTML.Box({
-				id: 'mergerGameDialog',
-				title: 'Merger Game',
-				auto_close: true,
-				dragdrop: true,
-				minimize: true,
-				resize : true,
-				ask: i18n('Boxes.MergerGame.HelpLink'),
-				settings: 'mergerGame.ShowSettingsButton()',
-			    active_maps:"main"
-			});
+  /**
+   * Shows a User Box with the current production stats
+   *
+   * @constructor
+   */
+  ShowDialog: () => {
+    // Don't create a new box while another one is still open
+    if ($('#mergerGameDialog').length === 0) {
+      HTML.AddCssFile('mergergame');
 
-			$('#mergerGameDialogclose').on("click",()=>{$('#mergerGameResetBlocker').remove()});
-			$('#mergerGameDialogButtons .window-minimize').on("click",()=>{
-				if (mergerGame.settings.hideOverlay) $('#mergerGameResetBlocker').remove()
-			});
-		}
-		
-		mergerGame.updateDialog();
-    },
-	
-	updateDialog: () => {
-		let type1 = mergerGame.types[1],
-			type2 = mergerGame.types[0];
-		if ($('#mergerGameDialog').length === 0) {
-			return;
-		}
-			
-		let table = mergerGame.state.table
-		//let targetEfficiency = mergerGame.settings.targetProgress/mergerGame.settings.availableCurrency;
-		/*let effcolor = (eff,target=targetEfficiency) => {
+      HTML.Box({
+        id: 'mergerGameDialog',
+        title: 'Merger Game',
+        auto_close: true,
+        dragdrop: true,
+        minimize: true,
+        resize: true,
+        ask: i18n('Boxes.MergerGame.HelpLink'),
+        settings: 'mergerGame.ShowSettingsButton()',
+        active_maps: 'main',
+      });
+
+      $('#mergerGameDialogclose').on('click', () => {
+        $('#mergerGameResetBlocker').remove();
+      });
+      $('#mergerGameDialogButtons .window-minimize').on('click', () => {
+        if (mergerGame.settings.hideOverlay)
+          $('#mergerGameResetBlocker').remove();
+      });
+    }
+
+    mergerGame.updateDialog();
+  },
+
+  updateDialog: () => {
+    let type1 = mergerGame.types[1],
+      type2 = mergerGame.types[0];
+    if ($('#mergerGameDialog').length === 0) {
+      return;
+    }
+
+    let table = mergerGame.state.table;
+    //let targetEfficiency = mergerGame.settings.targetProgress/mergerGame.settings.availableCurrency;
+    /*let effcolor = (eff,target=targetEfficiency) => {
 			return eff > target*1.15 ? 'var(--text-success)' : eff > target*1 ? 'yellow' : eff > target * 0.95 ? 'var(--text-bright)' : 'red';
 		}*/
-		//let keys = mergerGame.keySum();
-		//let totalValue = mergerGame.state.progress + keys*mergerGame.settings.keyValue;
-		//let efficiency = (totalValue / mergerGame.state.energyUsed).toFixed(2);
-		//let simEff = mergerGame.hasJoker?"???":Math.round((mergerGame.state.progress + mergerGame.solved.progress + (mergerGame.state.keys + mergerGame.solved.keys)*mergerGame.settings.keyValue)/mergerGame.state.energyUsed*100)/100||0
-		
-		//let simMinEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.min)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
-		//let simMaxEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.max)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
-		//let simAvgEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.average)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
+    //let keys = mergerGame.keySum();
+    //let totalValue = mergerGame.state.progress + keys*mergerGame.settings.keyValue;
+    //let efficiency = (totalValue / mergerGame.state.energyUsed).toFixed(2);
+    //let simEff = mergerGame.hasJoker?"???":Math.round((mergerGame.state.progress + mergerGame.solved.progress + (mergerGame.state.keys + mergerGame.solved.keys)*mergerGame.settings.keyValue)/mergerGame.state.energyUsed*100)/100||0
 
-		//let dailyEff = Math.round(((mergerGame.state.progress + mergerGame.state.daily.progress + (mergerGame.state.keys + mergerGame.state.daily.keys)*mergerGame.settings.keyValue)/(mergerGame.state.energyUsed+mergerGame.state.daily.energyUsed))*100)/100;
+    //let simMinEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.min)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
+    //let simMaxEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.max)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
+    //let simAvgEff = mergerGame.hasJoker?"?":Math.round((simEff * mergerGame.state.energyUsed + mergerGame.simResult.value.average)/(mergerGame.state.energyUsed + mergerGame.spawnCost)*100)/100
 
-		let totalPieces = {}
-		for (x of mergerGame.colors) {
-			totalPieces[x]={}
-			for (t of mergerGame.types) {
-				totalPieces[x][t]=0;
-			}
-		}
-		//let maxKeys= keys;
-		for (let i of mergerGame.colors) {
-			for (let t of mergerGame.types) {
-				totalPieces[i][t] = table[i][1][t] + table[i][2][t] + table[i][3][t] + table[i][4][t];
-			}
-			totalPieces[i]["min"] = Math.min(totalPieces[i][type1],totalPieces[i][type2]);
-			//maxKeys+=totalPieces[i]["min"]*mergerGame.keyValues[4];
-		}
-		let keyimg = (color,type) => {
-			return srcLinks.get(`/shared/seasonalevents/${mergerGame.event}/event/${mergerGame.lookup.keyIconAssetIds[color][type]}.png`,true)
-		}
-		html=``;
-		/*
+    //let dailyEff = Math.round(((mergerGame.state.progress + mergerGame.state.daily.progress + (mergerGame.state.keys + mergerGame.state.daily.keys)*mergerGame.settings.keyValue)/(mergerGame.state.energyUsed+mergerGame.state.daily.energyUsed))*100)/100;
+
+    let totalPieces = {};
+    for (x of mergerGame.colors) {
+      totalPieces[x] = {};
+      for (t of mergerGame.types) {
+        totalPieces[x][t] = 0;
+      }
+    }
+    //let maxKeys= keys;
+    for (let i of mergerGame.colors) {
+      for (let t of mergerGame.types) {
+        totalPieces[i][t] =
+          table[i][1][t] + table[i][2][t] + table[i][3][t] + table[i][4][t];
+      }
+      totalPieces[i]['min'] = Math.min(
+        totalPieces[i][type1],
+        totalPieces[i][type2],
+      );
+      //maxKeys+=totalPieces[i]["min"]*mergerGame.keyValues[4];
+    }
+    let keyimg = (color, type) => {
+      return srcLinks.get(
+        `/shared/seasonalevents/${mergerGame.event}/event/${mergerGame.lookup.keyIconAssetIds[color][type]}.png`,
+        true,
+      );
+    };
+    html = ``;
+    /*
 		html = `<table class="foe-table ${mergerGame.hideDaily ? 'hideDaily':''}" id="MGstatus"><tr><th title="${i18n("Boxes.MergerGame.Status.Title")}">${i18n("Boxes.MergerGame.Status")}</th>`
 		html += `<th onclick="$('#MGstatus').toggleClass('hideDaily'); mergerGame.hideDaily=!mergerGame.hideDaily" title="${i18n("Boxes.MergerGame.Round.Title")}">${i18n("Boxes.MergerGame.Round")}</th>`
 		html += `<th onclick="$('#MGstatus').toggleClass('hideDaily'); mergerGame.hideDaily=!mergerGame.hideDaily" title="${i18n("Boxes.MergerGame.Day.Title")}">${i18n("Boxes.MergerGame.Day")}</th>`
@@ -427,118 +485,150 @@ let mergerGame = {
 		
 		html += `</table>`
 		*/
-		for (let i of mergerGame.colors) {
-			html += `<table class="foe-table"><tr><th></th>`
-			for (let lev = 4; lev>0; lev--) {
-				html += `<th>${mergerGame.state.unlocked[i][lev].none}<img src="${srcLinks.get(`/shared/seasonalevents/${mergerGame.event}/event/${mergerGame.event}${mergerGame.eventData[mergerGame.event].tile}_${i}_${lev}.png`,true)}" title="${mergerGame.spawnChances?.[i]?.[lev]||0}%"></th>`
-			}
-			for (let o of mergerGame.types) {
-				if (o=="full") continue;
-				let m = totalPieces[i].min;
-				let t = totalPieces[i][o];
-				html += `</tr><tr><td ${((t==m && o != "full") || (0==m && o == "full") ) ? 'style="font-weight:bold"' : ''}>${t}${(o == "full") ? '/'+ (t+m) : ''}`;
-				html += `<img class="${"care" == mergerGame.event && o!="full" ? 'bottomrightcorner':''}" src="${keyimg(i,o)}"></td>`
-				for (let lev = 4; lev>0; lev--) {
-					val = table[i][lev][o];
-					if (val==0) val = "-";
-					html += `<td style="${val != "-" ? 'font-weight:bold;' : ''}${(o=="full" && lev==3 && table[i][lev][o]>1)?' color:red"': ((o=="full" && lev<3 && table[i][lev][o]>1)?' color:orange"': '')}">${val}</td>`
-				}
-			}
-			html += `</tr></table>`
-		}
-		
-		$('#mergerGameDialogBody').html(html);
-	},
-	ShowSettingsButton: () => {
-        let h = [];
-		h.push(`<table class="foe-table">`)
-        //h.push(`<tr><td>${i18n('Boxes.MergerGame.KeyValue.'+mergerGame.event)}</td>`);
-        //h.push(`<td><input type="Number" id="MGkeyValue" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.keyValue}"></td></tr>`);
-        //h.push(`<tr><td>${i18n('Boxes.MergerGame.availableCurrency.'+mergerGame.event)}</td>`);
-        //h.push(`<td><input type="Number" id="MGavailableCurrency" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.availableCurrency}"></td></tr>`);
-        //h.push(`<tr><td>${i18n('Boxes.MergerGame.targetProgress')}</td>`);
-        //h.push(`<td><input type="Number" id="MGtargetProgress" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.targetProgress}"></td></tr>`);
-        //h.push(`<tr><td>${i18n('Boxes.MergerGame.hideOverlay')}</td>`);
-        //h.push(`<td><input type="checkbox" id="MGhideOverlay" oninput="mergerGame.SaveSettings()"${mergerGame.settings.hideOverlay ? ' checked' : ''}></td></tr>`);
-        //h.push(`<tr><td>${i18n('Boxes.MergerGame.useAverage')}</td>`);
-        //h.push(`<td><input type="Number" id="MGuseAverage" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.useAverage || 0}"></td></tr>`);
-        h.push(`<tr><td>${i18n('Boxes.MergerGame.opticalTaskWarning')}</td>`);
-        h.push(`<td><input type="checkbox" id="opticalTaskWarning" oninput="mergerGame.SaveSettings()"${mergerGame.settings.opticalTaskWarning ? ' checked' : ''}></td></tr>`);
-        h.push(`<tr><td>${i18n('Boxes.MergerGame.audibleTaskWarning')}</td>`);
-        h.push(`<td><input type="checkbox" id="audibleTaskWarning" oninput="mergerGame.SaveSettings()"${mergerGame.settings.audibleTaskWarning ? ' checked' : ''}></td></tr>`);
-		h.push(`</table>`)
-        $('#mergerGameDialogSettingsBox').html(h.join(''));
-		/*
+    for (let i of mergerGame.colors) {
+      html += `<table class="foe-table"><tr><th></th>`;
+      for (let lev = 4; lev > 0; lev--) {
+        html += `<th>${mergerGame.state.unlocked[i][lev].none}<img src="${srcLinks.get(`/shared/seasonalevents/${mergerGame.event}/event/${mergerGame.event}${mergerGame.eventData[mergerGame.event].tile}_${i}_${lev}.png`, true)}" title="${mergerGame.spawnChances?.[i]?.[lev] || 0}%"></th>`;
+      }
+      for (let o of mergerGame.types) {
+        if (o == 'full') continue;
+        let m = totalPieces[i].min;
+        let t = totalPieces[i][o];
+        html += `</tr><tr><td ${(t == m && o != 'full') || (0 == m && o == 'full') ? 'style="font-weight:bold"' : ''}>${t}${o == 'full' ? '/' + (t + m) : ''}`;
+        html += `<img class="${'care' == mergerGame.event && o != 'full' ? 'bottomrightcorner' : ''}" src="${keyimg(i, o)}"></td>`;
+        for (let lev = 4; lev > 0; lev--) {
+          val = table[i][lev][o];
+          if (val == 0) val = '-';
+          html += `<td style="${val != '-' ? 'font-weight:bold;' : ''}${
+            o == 'full' && lev == 3 && table[i][lev][o] > 1 ? ' color:red"'
+            : o == 'full' && lev < 3 && table[i][lev][o] > 1 ? ' color:orange"'
+            : ''
+          }">${val}</td>`;
+        }
+      }
+      html += `</tr></table>`;
+    }
+
+    $('#mergerGameDialogBody').html(html);
+  },
+  ShowSettingsButton: () => {
+    let h = [];
+    h.push(`<table class="foe-table">`);
+    //h.push(`<tr><td>${i18n('Boxes.MergerGame.KeyValue.'+mergerGame.event)}</td>`);
+    //h.push(`<td><input type="Number" id="MGkeyValue" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.keyValue}"></td></tr>`);
+    //h.push(`<tr><td>${i18n('Boxes.MergerGame.availableCurrency.'+mergerGame.event)}</td>`);
+    //h.push(`<td><input type="Number" id="MGavailableCurrency" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.availableCurrency}"></td></tr>`);
+    //h.push(`<tr><td>${i18n('Boxes.MergerGame.targetProgress')}</td>`);
+    //h.push(`<td><input type="Number" id="MGtargetProgress" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.targetProgress}"></td></tr>`);
+    //h.push(`<tr><td>${i18n('Boxes.MergerGame.hideOverlay')}</td>`);
+    //h.push(`<td><input type="checkbox" id="MGhideOverlay" oninput="mergerGame.SaveSettings()"${mergerGame.settings.hideOverlay ? ' checked' : ''}></td></tr>`);
+    //h.push(`<tr><td>${i18n('Boxes.MergerGame.useAverage')}</td>`);
+    //h.push(`<td><input type="Number" id="MGuseAverage" oninput="mergerGame.SaveSettings()" value="${mergerGame.settings.useAverage || 0}"></td></tr>`);
+    h.push(`<tr><td>${i18n('Boxes.MergerGame.opticalTaskWarning')}</td>`);
+    h.push(
+      `<td><input type="checkbox" id="opticalTaskWarning" oninput="mergerGame.SaveSettings()"${mergerGame.settings.opticalTaskWarning ? ' checked' : ''}></td></tr>`,
+    );
+    h.push(`<tr><td>${i18n('Boxes.MergerGame.audibleTaskWarning')}</td>`);
+    h.push(
+      `<td><input type="checkbox" id="audibleTaskWarning" oninput="mergerGame.SaveSettings()"${mergerGame.settings.audibleTaskWarning ? ' checked' : ''}></td></tr>`,
+    );
+    h.push(`</table>`);
+    $('#mergerGameDialogSettingsBox').html(h.join(''));
+    /*
 		$("#mergerGameDialogSettingsBox input").keyup(function(event) {
 			if (event.keyCode === 13) {
 				$("#mergerGameDialogButtons .window-settings").trigger("click");
 			}
 		});*/
-    },
-	
-	SaveSettings: () => {
-        //mergerGame.settings["keyValue"] = Number($('#MGkeyValue').val()) || 1;
-		//mergerGame.settings["targetProgress"] = Number($('#MGtargetProgress').val()) || 3250;
-		//mergerGame.settings["availableCurrency"] = Number($('#MGavailableCurrency').val()) || 10500;
-		//mergerGame.settings["useAverage"] = Number($('#MGuseAverage').val()) || 0;
-		//mergerGame.settings["hideOverlay"] = $('#MGhideOverlay')[0].checked;
-		mergerGame.settings["opticalTaskWarning"] = $('#opticalTaskWarning')[0].checked;
-		mergerGame.settings["audibleTaskWarning"] = $('#audibleTaskWarning')[0].checked;
+  },
 
-		localStorage.setItem('MergerGameSettings', JSON.stringify(mergerGame.settings));
-        //mergerGame.updateDialog();
-    },
-	checkTaskProgress: (warn = true) => {
-		//Do not show window if deactivated in settings
-		if(!Settings.GetSetting('ShowEventChest') || !(Settings.GetSetting('EventHelperMerge') === undefined ? true : Settings.GetSetting('EventHelperMerge'))) {
-			return;
-		}
-		let raiseAlert = false;
-		let rewardsSum = {};
-		let wcSum = 0;
-		for (let [t,slot] of Object.entries(mergerGame.tasks)) {
-			if (slot.currentProgress >= slot.requiredProgress) {
-				if (!slot.alerted) {
-					raiseAlert = true;
-					slot.alerted = true;
-				}				
-				rewardsSum[slot.rewardResource] = (rewardsSum[slot.rewardResource] || 0) + (slot.rewardAmount || 0);
-				wcSum += slot.worldChallengeTokens || 0;
-			}
-		}
-		if (mergerGame.settings.audibleTaskWarning && warn && raiseAlert) {
-			helper.sounds.play("message");
-		}
-		if (mergerGame.settings.opticalTaskWarning && warn && raiseAlert && $('#mergerGameTaskWarning').length === 0) {
-			mergerGame.allowRemoveWarning = false;
-			setTimeout(() => {
-				mergerGame.allowRemoveWarning = true;
-			}, 200);
-			$(`<div id="mergerGameTaskWarning" class="mergerGameTaskWarning">
+  SaveSettings: () => {
+    //mergerGame.settings["keyValue"] = Number($('#MGkeyValue').val()) || 1;
+    //mergerGame.settings["targetProgress"] = Number($('#MGtargetProgress').val()) || 3250;
+    //mergerGame.settings["availableCurrency"] = Number($('#MGavailableCurrency').val()) || 10500;
+    //mergerGame.settings["useAverage"] = Number($('#MGuseAverage').val()) || 0;
+    //mergerGame.settings["hideOverlay"] = $('#MGhideOverlay')[0].checked;
+    mergerGame.settings['opticalTaskWarning'] = $(
+      '#opticalTaskWarning',
+    )[0].checked;
+    mergerGame.settings['audibleTaskWarning'] = $(
+      '#audibleTaskWarning',
+    )[0].checked;
+
+    localStorage.setItem(
+      'MergerGameSettings',
+      JSON.stringify(mergerGame.settings),
+    );
+    //mergerGame.updateDialog();
+  },
+  checkTaskProgress: (warn = true) => {
+    //Do not show window if deactivated in settings
+    if (
+      !Settings.GetSetting('ShowEventChest') ||
+      !(Settings.GetSetting('EventHelperMerge') === undefined ?
+        true
+      : Settings.GetSetting('EventHelperMerge'))
+    ) {
+      return;
+    }
+    let raiseAlert = false;
+    let rewardsSum = {};
+    let wcSum = 0;
+    for (let [t, slot] of Object.entries(mergerGame.tasks)) {
+      if (slot.currentProgress >= slot.requiredProgress) {
+        if (!slot.alerted) {
+          raiseAlert = true;
+          slot.alerted = true;
+        }
+        rewardsSum[slot.rewardResource] =
+          (rewardsSum[slot.rewardResource] || 0) + (slot.rewardAmount || 0);
+        wcSum += slot.worldChallengeTokens || 0;
+      }
+    }
+    if (mergerGame.settings.audibleTaskWarning && warn && raiseAlert) {
+      helper.sounds.play('message');
+    }
+    if (
+      mergerGame.settings.opticalTaskWarning &&
+      warn &&
+      raiseAlert &&
+      $('#mergerGameTaskWarning').length === 0
+    ) {
+      mergerGame.allowRemoveWarning = false;
+      setTimeout(() => {
+        mergerGame.allowRemoveWarning = true;
+      }, 200);
+      $(`<div id="mergerGameTaskWarning" class="mergerGameTaskWarning">
 					<div class="foeHelper">
-						${i18n("Global.BoxTitle")}
+						${i18n('Global.BoxTitle')}
 					</div>
-					${i18n("Boxes.MergerGame.TaskReady")} ➤
+					${i18n('Boxes.MergerGame.TaskReady')} ➤
 					<div class="CurrencyOverflowWarning">
-						${i18n("Boxes.MergerGame.CurrencyOverflowWarning")} ▲▲▲
+						${i18n('Boxes.MergerGame.CurrencyOverflowWarning')} ▲▲▲
 					</div>
 					<div class="WorldChallengeOverflowWarning">
-						${i18n("Boxes.MergerGame.WorldChallengeOverflowWarning")} ▼▼▼
+						${i18n('Boxes.MergerGame.WorldChallengeOverflowWarning')} ▼▼▼
 					</div>
 				</div>`)
-				.appendTo('body')
-				.on("click",()=>{$('#mergerGameTaskWarning').remove()});
-		} else {
-			if (mergerGame.allowRemoveWarning && warn) $('#mergerGameTaskWarning').remove();
-		}
-		if (worldChallenge.currentPoints + wcSum > worldChallenge.requiredPoints)
-			$('#mergerGameTaskWarning').addClass('showWorldChallengeOverflowWarning');
-		for (let [r,amount] of Object.entries(rewardsSum)) {
-			if ((GoodsData[r].abilities?.resourceCap?.amount || Infinity) < amount +  ResourceStock[r])
-				$('#mergerGameTaskWarning').addClass('showCurrencyOverflowWarning');
-		}
-	}
-	/*
+        .appendTo('body')
+        .on('click', () => {
+          $('#mergerGameTaskWarning').remove();
+        });
+    } else {
+      if (mergerGame.allowRemoveWarning && warn)
+        $('#mergerGameTaskWarning').remove();
+    }
+    if (worldChallenge.currentPoints + wcSum > worldChallenge.requiredPoints)
+      $('#mergerGameTaskWarning').addClass('showWorldChallengeOverflowWarning');
+    for (let [r, amount] of Object.entries(rewardsSum)) {
+      if (
+        (GoodsData[r].abilities?.resourceCap?.amount || Infinity) <
+        amount + ResourceStock[r]
+      )
+        $('#mergerGameTaskWarning').addClass('showCurrencyOverflowWarning');
+    }
+  },
+  /*
 	solve:() => {
 		let type1 = mergerGame.types[1],
 			type2 = mergerGame.types[0];
@@ -1543,4 +1633,4 @@ let mergerGame = {
 			
 		return {keys:keys, progress:startProgress-endProgress,locked:lockedO, free:freeO}
 	},*/
-}
+};

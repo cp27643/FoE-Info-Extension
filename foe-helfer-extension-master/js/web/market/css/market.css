@@ -12,58 +12,58 @@
  */
 
 #Market {
-	top: 100px;
-	right: 100px;
-	width: 650px;
-	height: 500px;
+  top: 100px;
+  right: 100px;
+  width: 650px;
+  height: 500px;
 }
 
 #Market #MarketBody {
-    overflow-y: auto;
-    max-height: 2160px;
+  overflow-y: auto;
+  max-height: 2160px;
 }
 
 #Market #MarketBody table th {
-	cursor: pointer;
-	font-size: 85%;
+  cursor: pointer;
+  font-size: 85%;
 }
 
 #Market #MarketBody td {
-    position: relative;
-    font-size: 85%;
-    vertical-align: middle;
+  position: relative;
+  font-size: 85%;
+  vertical-align: middle;
 }
 
 #Market #MarketBody td span.custom-option.era {
-	font-weight: bold;
-	font-size: 0.9rem;
+  font-weight: bold;
+  font-size: 0.9rem;
 }
 
 #Market #MarketBody td span.custom-option:not(.era) {
-	padding-left: 20px;
+  padding-left: 20px;
 }
 
 #Market #MarketBody .filters th {
-    text-align: center;
+  text-align: center;
 }
 
 #Market #MarketBody .filters select {
-    width: 160px;
+  width: 160px;
 }
 
-#Market #MarketBody td.goods-image { 
-	padding: 0;
-	background-color: var(--black-50);
+#Market #MarketBody td.goods-image {
+  padding: 0;
+  background-color: var(--black-50);
 }
 
 #Market #MarketBody .sprite-35 {
-	width: 25px;
-	height: 25px;
-	text-align: center;
+  width: 25px;
+  height: 25px;
+  text-align: center;
 }
 
-#Market #MarketBody .sprite-35::before { 
-	overflow: hidden;
-	/*position: static;*/
-	display: inline-block;
+#Market #MarketBody .sprite-35::before {
+  overflow: hidden;
+  /*position: static;*/
+  display: inline-block;
 }

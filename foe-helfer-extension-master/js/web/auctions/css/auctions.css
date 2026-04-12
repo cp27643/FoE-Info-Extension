@@ -14,29 +14,28 @@
  */
 
 #auctionSettingsBox {
-	top: calc((100vH - 400px) / 2);
-	left: calc((100vw - 500px) / 2);
-	width: 220px;
-	height: 260px;
+  top: calc((100vh - 400px) / 2);
+  left: calc((100vw - 500px) / 2);
+  width: 220px;
+  height: 260px;
 }
 
 #auctionSettingsBoxBody {
-	overflow-y: auto;
+  overflow-y: auto;
 }
 
 #auctionSettingsBoxBody th {
-	width: 40%;
-	min-width: 50px;
-	text-align: center;
+  width: 40%;
+  min-width: 50px;
+  text-align: center;
 }
 #auctionSettingsBoxBody th:first-child {
-	width: 20%;
+  width: 20%;
 }
 #auctionSettingsBoxBody input {
-	width:100%;
+  width: 100%;
 }
 
 #auctionSettingsBoxBody td:first-child {
-	text-align: center;
+  text-align: center;
 }
-

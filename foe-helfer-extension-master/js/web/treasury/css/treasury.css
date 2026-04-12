@@ -12,10 +12,10 @@
  */
 
 #treasury {
-    width: 370px;
+  width: 370px;
 }
 
 #treasury #treasuryBody {
-    overflow: auto;
-    padding: 10px;
+  overflow: auto;
+  padding: 10px;
 }

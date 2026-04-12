@@ -12,269 +12,267 @@
  */
 
 #Investment {
-	width: 750px;
-	height: 450px;
-	top: calc(50vh - 200px);
-	left: calc(50vw - 310px);
+  width: 750px;
+  height: 450px;
+  top: calc(50vh - 200px);
+  left: calc(50vw - 310px);
 }
 
 #Investment #InvestmentBody {
-	overflow: auto;
+  overflow: auto;
 }
 
 #InvestmentBody .total-wrapper {
-	display: inline-flex;
-	justify-content: space-around;
-	width: calc(100% - 20px);
-	padding: 10px;
+  display: inline-flex;
+  justify-content: space-around;
+  width: calc(100% - 20px);
+  padding: 10px;
 }
 
 #Investment #InvestmentBody strong {
-	color: var(--bright-color);
+  color: var(--bright-color);
 }
 
-
 #InvestmentBody #history-wrapper {
-	border-top: 2px solid var(--bright-color);
-	margin-bottom: 18px;
+  border-top: 2px solid var(--bright-color);
+  margin-bottom: 18px;
 }
 
 #InvestmentBody table {
-	position: relative;
+  position: relative;
 }
 
 #InvestmentBody table th {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 #InvestmentBody table tr.new td {
-	background: var(--table-bg-success);
+  background: var(--table-bg-success);
 }
 
 #InvestmentBody table tr.hidden {
-	display: none;
+  display: none;
 }
 
 #InvestmentBody div.detail {
-	padding-left: 10px;
+  padding-left: 10px;
 }
 
 #InvestmentBody table tbody tr {
-	opacity: .999;
+  opacity: 0.999;
 }
 
 #InvestmentBody table tbody td.progress {
-	border-left: 1px solid var(--border-table-top);
-	border-right: 1px solid var(--border-table-top);
-	background: none;
-	color: var(--text-light);
-	position: relative;
+  border-left: 1px solid var(--border-table-top);
+  border-right: 1px solid var(--border-table-top);
+  background: none;
+  color: var(--text-light);
+  position: relative;
 }
 
 #InvestmentBody table tbody tr.fphistory {
-	position: relative;
+  position: relative;
 }
 
 #InvestmentBody table tbody tr.fphistory td:last-child {
-    background-image: url('../../../../css/images/hud/chevron-left.svg');
-    background-size: 20px 20px;
-	background-position: center right;
-	background-repeat: no-repeat;
-	min-width: 4px;
+  background-image: url('../../../../css/images/hud/chevron-left.svg');
+  background-size: 20px 20px;
+  background-position: center right;
+  background-repeat: no-repeat;
+  min-width: 4px;
 }
 
 #InvestmentBody table tbody tr.fphistory.open td:last-child {
-	background-image: url('../../../../css/images/hud/chevron-down.svg');
+  background-image: url('../../../../css/images/hud/chevron-down.svg');
 }
 
 #InvestmentBody table tbody td div.progbar {
-	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
-	background: var(--btn-bg-green-fallback);
-	background: var(--btn-bg-green-moz);
-	background: var(--btn-bg-green-webkit);
-	background: var(--btn-bg-green);
-	z-index: -1;
-	color: var(--text-light);
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--btn-bg-green-fallback);
+  background: var(--btn-bg-green-moz);
+  background: var(--btn-bg-green-webkit);
+  background: var(--btn-bg-green);
+  z-index: -1;
+  color: var(--text-light);
 }
 
 #InvestmentBody table tbody td div.diff {
-	position: absolute;
-	min-width: 10px;
-	text-align: center;
-	right: 2px;
-	top: 1px;
-	font-size: 0.85em;
-	padding: 1px 2px;
-	color: var(--bright-color);
-	font-weight: bold;
-	text-shadow: 0 2px 2px black, 0 1px 0 black;
+  position: absolute;
+  min-width: 10px;
+  text-align: center;
+  right: 2px;
+  top: 1px;
+  font-size: 0.85em;
+  padding: 1px 2px;
+  color: var(--bright-color);
+  font-weight: bold;
+  text-shadow:
+    0 2px 2px black,
+    0 1px 0 black;
 }
 
 #InvestmentBody table tbody tr.hide {
-	display: none;
+  display: none;
 }
 
-#InvestmentBody table tbody tr.ishidden{
-	opacity: 0.4;
+#InvestmentBody table tbody tr.ishidden {
+  opacity: 0.4;
 }
 
 #InvestmentBody table tbody tr:hover div.diff {
-	opacity:1;
+  opacity: 1;
 }
 
 #InvestmentBody table tbody td div.diff.error {
-	background: #bf0000;
+  background: #bf0000;
 }
-#InvestmentBody table tbody td .success{
-	color: var(--text-success);
+#InvestmentBody table tbody td .success {
+  color: var(--text-success);
 }
-#InvestmentBody table tbody td .error{
-	color: #f11616;
+#InvestmentBody table tbody td .error {
+  color: #f11616;
 }
-#InvestmentBody table tbody td .warning{
-	color: var(--bright-color);
+#InvestmentBody table tbody td .warning {
+  color: var(--bright-color);
 }
 
 #InvestmentBody table tbody td img.rank {
-	width: 22px;
+  width: 22px;
 }
 #InvestmentBody table tbody td .hideicon {
-	width: 24px;
-	height: 24px;
-	cursor: pointer;
-	display: block;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: block;
 }
 #InvestmentBody table tbody td .hideicon.ishidden-off {
-	background: url(../images/visible.png);
+  background: url(../images/visible.png);
 }
 
 #InvestmentBody table tbody td .hideicon.ishidden-on {
-	background: url(../images/unvisible.png);
+  background: url(../images/unvisible.png);
 }
 
-#InvestmentBody #hidden-bar.hide{
-	display:none;
+#InvestmentBody #hidden-bar.hide {
+  display: none;
 }
 
-#InvestmentBody #hidden-bar img{
-	width: 16px;
-	height: 16px;
-}
-
-#InvestmentBody .last-update-message {
-    position: absolute;
-    bottom: 1px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.392);
-    padding: 1px 10px 1px 5px;
-    font-size: 0.9em;
-    box-sizing: border-box;
-    line-height: 18px;
-    display: flex;
-}
-
-#InvestmentBody .last-update-message .updaterequired {
-    color: var(--bright-color);
-}
-
-#InvestmentBody .last-update-message span.icon {
-    display: block;
-    text-indent: -9999px;
-    width: 18px;
-    height: 18px;
-    margin-right: 5px;
-}
-
-#InvestmentBody .last-update-message .icon.uptodate {
-    background: url(../images/uptodate.svg);
-	background-size: 18px 18px;
-
-}
-
-#InvestmentBody .last-update-message .icon.updaterequired {
-    background: url(../images/update_required.svg);
-	background-size: 18px 18px;
+#InvestmentBody #hidden-bar img {
+  width: 16px;
+  height: 16px;
 }
 
 #InvestmentBody .last-update-message {
-    position: absolute;
-    bottom: 1px;
-    right: 4px;
-    background: rgba(0, 0, 0, 0.392);
-    padding: 1px 10px 1px 5px;
-    font-size: 0.9em;
-    box-sizing: border-box;
-    line-height: 18px;
-    display: flex;
+  position: absolute;
+  bottom: 1px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.392);
+  padding: 1px 10px 1px 5px;
+  font-size: 0.9em;
+  box-sizing: border-box;
+  line-height: 18px;
+  display: flex;
 }
 
 #InvestmentBody .last-update-message .updaterequired {
-    color: var(--bright-color);
+  color: var(--bright-color);
 }
 
 #InvestmentBody .last-update-message span.icon {
-    display: block;
-    text-indent: -9999px;
-    width: 18px;
-    height: 18px;
-    margin-right: 5px;
+  display: block;
+  text-indent: -9999px;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
 }
 
 #InvestmentBody .last-update-message .icon.uptodate {
-    background: url(../images/uptodate.svg);
-	background-size: 18px 18px;
-
+  background: url(../images/uptodate.svg);
+  background-size: 18px 18px;
 }
 
 #InvestmentBody .last-update-message .icon.updaterequired {
-    background: url(../images/update_required.svg);
-	background-size: 18px 18px;
+  background: url(../images/update_required.svg);
+  background-size: 18px 18px;
+}
+
+#InvestmentBody .last-update-message {
+  position: absolute;
+  bottom: 1px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.392);
+  padding: 1px 10px 1px 5px;
+  font-size: 0.9em;
+  box-sizing: border-box;
+  line-height: 18px;
+  display: flex;
+}
+
+#InvestmentBody .last-update-message .updaterequired {
+  color: var(--bright-color);
+}
+
+#InvestmentBody .last-update-message span.icon {
+  display: block;
+  text-indent: -9999px;
+  width: 18px;
+  height: 18px;
+  margin-right: 5px;
+}
+
+#InvestmentBody .last-update-message .icon.uptodate {
+  background: url(../images/uptodate.svg);
+  background-size: 18px 18px;
+}
+
+#InvestmentBody .last-update-message .icon.updaterequired {
+  background: url(../images/update_required.svg);
+  background-size: 18px 18px;
 }
 
 #InvestmentBody tr th span {
-	display: inline-block;
-	width: 25px;
-	height: 25px;
-	vertical-align: bottom;
+  display: inline-block;
+  width: 25px;
+  height: 25px;
+  vertical-align: bottom;
 }
 
 #InvestmentBody span.icon.medal {
-	background: url(../../x_img/medal.png) center no-repeat;
-    background-size: contain;
-    display: inline-block;
-    width: 17px;
-    height: 17px;
-    vertical-align: top;
-    margin-right: 5px;
+  background: url(../../x_img/medal.png) center no-repeat;
+  background-size: contain;
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  vertical-align: top;
+  margin-right: 5px;
 }
 
-
 #InvestmentBody tr th span.blueprints {
-	background: url(../../x_img/blueprint.png) center no-repeat;
-	background-size: contain;
+  background: url(../../x_img/blueprint.png) center no-repeat;
+  background-size: contain;
 }
 
 #InvestmentBody tr th span.medal {
-	background: url(../../x_img/medal.png) center no-repeat;
-	background-size: contain;
+  background: url(../../x_img/medal.png) center no-repeat;
+  background-size: contain;
 }
 
 #InvestmentBody tr th span {
-	display: inline-block;
-	width: 25px;
-	height: 25px;
-	vertical-align: bottom;
+  display: inline-block;
+  width: 25px;
+  height: 25px;
+  vertical-align: bottom;
 }
 
 #InvestmentBody tr th span.blueprints {
-	background: url(../../x_img/blueprint.png) center no-repeat;
-	background-size: contain;
+  background: url(../../x_img/blueprint.png) center no-repeat;
+  background-size: contain;
 }
 
 #InvestmentBody tr th span.medal {
-	background: url(../../x_img/medal.png) center no-repeat;
-	background-size: contain;
+  background: url(../../x_img/medal.png) center no-repeat;
+  background-size: contain;
 }

@@ -248,9 +248,7 @@ export async function scanFriendsData(onProgress) {
 
   if (constructionPayloads.length > 0) {
     if (onProgress)
-      onProgress(
-        `Fetching ${constructionPayloads.length} building details…`,
-      );
+      onProgress(`Fetching ${constructionPayloads.length} building details…`);
     const constructionResponse =
       await postChunkedBatchRequest(constructionPayloads);
 

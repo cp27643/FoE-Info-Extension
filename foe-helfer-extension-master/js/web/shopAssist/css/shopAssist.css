@@ -12,136 +12,135 @@
  */
 
 #shopAssist {
-	top: 50px;
-	left: calc(100vw - 350px);
-	width: 280px;
-    height: 300px;
+  top: 50px;
+  left: calc(100vw - 350px);
+  width: 280px;
+  height: 300px;
 }
 
 #shopAssistBody {
-	overflow: auto;
+  overflow: auto;
 }
 
 .shopAssistTable div.flexbetween {
-	display:flex;
-	justify-content: space-between;
-	width:100%;
-	gap:5px;	
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 5px;
 }
-
 
 .shopAssistTable thead tr:last-child {
-	position: sticky;
-	top: 0;
+  position: sticky;
+  top: 0;
 }
 .shopAssistTable thead {
-	text-align: center;
+  text-align: center;
 }
 .shopAssistTable thead tr:nth-child(1) th:nth-child(1),
-.shopAssistTable thead tr:nth-child(2) th:nth-child(2), 
-.shopAssistTable td:nth-child(3){
-	text-align: left;
+.shopAssistTable thead tr:nth-child(2) th:nth-child(2),
+.shopAssistTable td:nth-child(3) {
+  text-align: left;
 }
-.shopAssistTable thead tr:nth-child(1) th:nth-child(2){ 
-	text-align: right;
+.shopAssistTable thead tr:nth-child(1) th:nth-child(2) {
+  text-align: right;
 }
 .shopAssistTable .shopResource {
-	margin-right: 10px;
-	opacity: 0.5;
+  margin-right: 10px;
+  opacity: 0.5;
 }
 .shopAssistTable .shopResource.active {
-	opacity: 1;
+  opacity: 1;
 }
 .shopAssistTable .shopResource:hover {
-	filter: drop-shadow(0px 0px 4px goldenrod);
+  filter: drop-shadow(0px 0px 4px goldenrod);
 }
 .shopAssistTable td {
-	text-align: center;
-	white-space: nowrap;
+  text-align: center;
+  white-space: nowrap;
 }
 .shopAssistTable td:nth-child(3) {
-	width:70%;
-	white-space: wrap;
+  width: 70%;
+  white-space: wrap;
 }
 .shopAssistTable td.canBuy {
-	background-color: var(--table-bg-success);
-	color: var(--text-success);
+  background-color: var(--table-bg-success);
+  color: var(--text-success);
 }
 .shopAssistTable td.locked {
-	background-color: var(--table-bg-error);
-	color: var(--text-red);
+  background-color: var(--table-bg-error);
+  color: var(--text-red);
 }
 .shopAssistTable td.costs {
-	vertical-align: bottom;
-	text-align: right;
-	padding: 2px 7px;
+  vertical-align: bottom;
+  text-align: right;
+  padding: 2px 7px;
 }
 .shopAssistTable td:nth-last-child(3) {
-	border-left: 1px solid var(--border-table-top);
+  border-left: 1px solid var(--border-table-top);
 }
 .shopAssistTable td:nth-last-child(4) {
-	border-right: 1px solid var(--border-table-bottom);
+  border-right: 1px solid var(--border-table-bottom);
 }
 
 .shopAssistTable.favouritesOnly tbody tr:not(.isShopFavourite) {
-	display: none;
+  display: none;
 }
 .shopAssistTable.unlockedOnly tbody tr:not(.isUnlocked) {
-	display: none;
+  display: none;
 }
-.shopAssistTable .shopFavourite:after{
-	content: '☆';
-	color: goldenrod;
-	font-size: large;
+.shopAssistTable .shopFavourite:after {
+  content: '☆';
+  color: goldenrod;
+  font-size: large;
 }
-.shopAssistTable .isShopFavourite .shopFavourite:after{
-	content: '★';
-	color: goldenrod;
+.shopAssistTable .isShopFavourite .shopFavourite:after {
+  content: '★';
+  color: goldenrod;
 }
 .shopAssistTable .shopAlert:after {
-	content: '🔕';
-	font-size: smaller;
+  content: '🔕';
+  font-size: smaller;
 }
 .shopAssistTable .shopAlert.alertActive:after {
-	content: '🔔';	
+  content: '🔔';
 }
 
 .shopAssistTable .shopAlert:hover,
-.shopAssistTable .shopFavourite:hover{
-	text-shadow: 0 0 3px goldenrod;
-	opacity: 1;
+.shopAssistTable .shopFavourite:hover {
+  text-shadow: 0 0 3px goldenrod;
+  opacity: 1;
 }
 
 .shopAssistTable tr.soldOut {
-	opacity: 0.5;
+  opacity: 0.5;
 }
 
 .shopAssistTable img {
-	height: 21px;
-	padding-left: 2px;
+  height: 21px;
+  padding-left: 2px;
 }
 
-.shopAssistTable img[src*="tooltip_fragment"] {
-	height: 19px;
-	padding-right: 3px;
-	padding-left: 0;
+.shopAssistTable img[src*='tooltip_fragment'] {
+  height: 19px;
+  padding-right: 3px;
+  padding-left: 0;
 }
 
 #shopAssistUnlock {
-	margin-left: 10px;
+  margin-left: 10px;
 }
 
 #shopAssist .shopDiscount::before {
-	content: '▼';
-	margin-right: 2px;
+  content: '▼';
+  margin-right: 2px;
 }
 
 #shopAssist .buyable {
-	color: var(--text-success);
-    font-weight: 600;
-    text-shadow: 0px 0px 3px #000000;
+  color: var(--text-success);
+  font-weight: 600;
+  text-shadow: 0px 0px 3px #000000;
 }
 
 #shopAssist .currencyFiltered {
-	display: none;
+  display: none;
 }

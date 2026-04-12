@@ -11,16 +11,20 @@
  * **************************************************************************************
  */
 
-
-
- #findGBDialog{
+#findGBDialog {
   width: 500px;
   height: 400px;
 }
-#findGBDialogBody{
+#findGBDialogBody {
   overflow: auto;
 }
 
 #foundGB .progress {
-  background: linear-gradient(90deg, var(--table-bg-success) 0, var(--table-bg-success) var(--p), transparent var(--p), transparent)
+  background: linear-gradient(
+    90deg,
+    var(--table-bg-success) 0,
+    var(--table-bg-success) var(--p),
+    transparent var(--p),
+    transparent
+  );
 }

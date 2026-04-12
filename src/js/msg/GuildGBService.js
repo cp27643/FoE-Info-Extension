@@ -178,9 +178,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       rewardFP: userReward,
       userProfit,
       profitPct:
-        effectiveCost > 0 ?
-          Math.round((userProfit / effectiveCost) * 100)
-        : 0,
+        effectiveCost > 0 ? Math.round((userProfit / effectiveCost) * 100) : 0,
       rewardMedals: medals[index],
       rewardBlueprints: blueprints[index],
     });

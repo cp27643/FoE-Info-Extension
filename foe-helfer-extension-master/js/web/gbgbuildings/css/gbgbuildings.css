@@ -12,29 +12,30 @@
  */
 
 #GBGBuildings {
-	width: 420px;
-	height: 400px;
+  width: 420px;
+  height: 400px;
 }
 #GBGBuildingsBody {
-	overflow-y: auto;
+  overflow-y: auto;
 }
-#GBGBuildingsBody th, #GBGBuildingsBody td {
-	text-align: center;
+#GBGBuildingsBody th,
+#GBGBuildingsBody td {
+  text-align: center;
 }
-#GBGBuildingsBody th:first-child, #GBGBuildingsBody td:first-child {
-	text-align: left;
+#GBGBuildingsBody th:first-child,
+#GBGBuildingsBody td:first-child {
+  text-align: left;
 }
 #GBGBuildingsBody .building {
-	width: 65px;
+  width: 65px;
 }
 #GBGBuildingsBody .keep {
-	opacity: 40%;
+  opacity: 40%;
 }
 #GBGBuildingsBody .highlight {
-	font-weight: 800;
-	color: var(--bright-color);
+  font-weight: 800;
+  color: var(--bright-color);
 }
 #GBGBuildingsBody .breakline td {
-	border-top: 2px solid var(--bright-color);
+  border-top: 2px solid var(--bright-color);
 }
-

@@ -276,9 +276,8 @@ function processWsMessages(messages) {
     }
 
     // Incremental province update — merge delta into current map
-    const updates = Array.isArray(msg.responseData)
-      ? msg.responseData
-      : [msg.responseData];
+    const updates =
+      Array.isArray(msg.responseData) ? msg.responseData : [msg.responseData];
 
     for (const update of updates) {
       if (!update || typeof update.id === 'undefined') continue;
@@ -609,8 +608,9 @@ function updateMonitorReadiness(btn, statusDiv) {
     {
       label: 'GBG data',
       ok: hasData,
-      detail: hasData
-        ? `${currentMap.length} provinces loaded`
+      detail:
+        hasData ?
+          `${currentMap.length} provinces loaded`
         : 'open GBG map in-game to load data',
     },
     {
