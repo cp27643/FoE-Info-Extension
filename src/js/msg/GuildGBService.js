@@ -94,8 +94,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const rank = index + 1;
     const baseReward = rewards[index];
 
-    // Check who holds this position — in a 1.9 thread, only vacant
-    // positions or positions the user already partially holds are relevant.
+    // Who holds this position?
     const holderEntry = (rankings ?? []).find((p) => p.rank === rank);
     const isVacant =
       !holderEntry?.player?.name ||
@@ -104,26 +103,33 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       holderEntry?.player?.is_self ||
       holderEntry?.player?.player_id == PlayerID;
 
-    // Skip positions already claimed by another player
-    if (!isVacant && !isSelf) continue;
-
     // 1.9 price: the break-even contribution at 1.9× multiplier
-    // Game rounds rewards, so use Math.round to match
     const threadPrice = Math.round(baseReward * THREAD_MULTIPLIER);
 
-    // What's currently in this rank
+    // FP currently held by whoever is in this rank
     const currentFP = Top[index];
 
-    // How much FP is still needed to fill this spot to the 1.9 price
-    // For vacant positions: full thread price
-    // For self-held positions: remaining to reach 1.9
-    const fpNeeded = Math.max(0, threadPrice - currentFP);
+    // In FoE, contributions are per-player. To TAKE a rank you must
+    // contribute more than the current holder. Your contribution is
+    // YOUR total, not added on top of theirs.
+    // - Vacant: you need the full threadPrice (nobody to beat)
+    // - Self-held: you already have currentFP, just top up to threadPrice
+    // - Other-held: you need the full threadPrice (must beat their total)
+    let fpNeeded;
+    if (isVacant) {
+      fpNeeded = threadPrice;
+    } else if (isSelf) {
+      fpNeeded = Math.max(0, threadPrice - currentFP);
+    } else {
+      // Must contribute full threadPrice to beat the current holder
+      // (threadPrice > currentFP is required, otherwise position is overfilled)
+      if (threadPrice <= currentFP) continue;
+      fpNeeded = threadPrice;
+    }
 
-    // If already filled or overfilled, skip
     if (fpNeeded <= 0) continue;
 
-    // Safety check: calculate the lock cost to verify the position is secure.
-    // Use the same lock formula as the snipe scanner.
+    // Lock cost: verify the position is secure after contributing
     let maxBelowFP = 0;
     for (let k = index; k < 6; k++) {
       if (myRank > 0 && k === myRank - 1) continue;
@@ -133,32 +139,31 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const lockToBeat = myRank === rank ? 0 : currentFP + 1;
     const lockCost = Math.max(lockFromThreat, lockToBeat);
 
-    // Determine the effective cost and whether the position is viable:
-    // Normal case: building has enough FP left to fill to the 1.9 price
-    // Near-completion: building is almost done — contribute all remaining FP
-    //   to level the building for the guild member (not a snipe)
+    // Determine effective cost:
+    // Normal: contribute full threadPrice (or fpNeeded if self-held)
+    // Near-completion: building almost done — contribute all remaining FP
+    //   to level the building for the guild member
     let effectiveCost;
     let isNearCompletion = false;
 
     if (remainingFP > 0 && fpNeeded > remainingFP) {
-      // Building will complete before we can fill to the 1.9 price.
-      // Contribute ALL remaining FP to level it for our guild member.
+      // Building will complete before we can fill to 1.9.
+      // Contribute ALL remaining FP to level it.
       isNearCompletion = true;
       effectiveCost = remainingFP;
 
-      // Must still be able to secure the rank
+      // Must still beat the current holder and secure the rank
+      if (remainingFP <= currentFP && !isSelf) continue;
       if (lockCost > remainingFP) continue;
     } else {
-      // Normal 1.9 thread fill
-      effectiveCost = threadPrice;
+      effectiveCost = fpNeeded;
 
-      // The 1.9 price must actually lock the position
-      if (threadPrice < lockCost) continue;
+      // The contribution must lock the position
+      if (effectiveCost < lockCost) continue;
     }
 
     // User's actual reward with their real Arc bonus
     const userReward = Math.round(baseReward * userArcMultiplier);
-    // Profit based on effective cost (thread price or remaining FP)
     const userProfit = userReward - effectiveCost;
 
     spots.push({
@@ -166,7 +171,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       currentHolder: isVacant ? '(open)' : (holderEntry?.player?.name ?? '?'),
       currentFP,
       threadPrice: isNearCompletion ? effectiveCost : threadPrice,
-      fpNeeded: isNearCompletion ? effectiveCost : fpNeeded,
+      fpNeeded: effectiveCost,
       isNearCompletion,
       myFP,
       baseRewardFP: baseReward,
