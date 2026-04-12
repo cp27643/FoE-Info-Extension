@@ -107,12 +107,8 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     // If already filled or overfilled, skip
     if (fpNeeded <= 0) continue;
 
-    // If remaining FP on the building < what's needed, skip (can't fill)
-    if (remainingFP > 0 && fpNeeded > remainingFP) continue;
-
-    // Safety check: the 1.9 price must actually lock the position.
-    // Use the same lock formula as the snipe scanner to verify no one
-    // below can bump us after we contribute.
+    // Safety check: calculate the lock cost to verify the position is secure.
+    // Use the same lock formula as the snipe scanner.
     let maxBelowFP = 0;
     for (let k = index; k < 6; k++) {
       if (myRank > 0 && k === myRank - 1) continue;
@@ -122,8 +118,27 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     const lockToBeat = myRank === rank ? 0 : currentFP + 1;
     const lockCost = Math.max(lockFromThreat, lockToBeat);
 
-    // Skip if the 1.9 price doesn't secure the position
-    if (threadPrice < lockCost) continue;
+    // Determine the effective cost and whether the position is viable:
+    // Normal case: building has enough FP left to fill to the 1.9 price
+    // Near-completion: building is almost done — use the lock cost instead
+    let effectiveCost;
+    let isNearCompletion = false;
+
+    if (remainingFP > 0 && fpNeeded > remainingFP) {
+      // Building will complete before we can fill to the 1.9 price.
+      // Fall back to lock cost — a near-completion snipe.
+      isNearCompletion = true;
+      effectiveCost = lockCost;
+
+      // If even the lock cost exceeds remaining FP, truly can't secure it
+      if (lockCost > remainingFP) continue;
+    } else {
+      // Normal 1.9 thread fill
+      effectiveCost = threadPrice;
+
+      // The 1.9 price must actually lock the position
+      if (threadPrice < lockCost) continue;
+    }
 
     const isVacant = !rankings?.find(
       (p) =>
@@ -135,21 +150,24 @@ function calculate19Spots(rankings, remaining, arcBonus) {
 
     // User's actual reward with their real Arc bonus
     const userReward = Math.round(baseReward * userArcMultiplier);
-    // Profit if user fills the spot at 1.9 price
-    const userProfit = userReward - threadPrice;
+    // Profit based on effective cost (thread price or lock cost)
+    const userProfit = userReward - effectiveCost;
 
     spots.push({
       rank,
       currentHolder: isVacant ? '(open)' : (holder?.player?.name ?? '?'),
       currentFP,
-      threadPrice,
-      fpNeeded,
+      threadPrice: isNearCompletion ? effectiveCost : threadPrice,
+      fpNeeded: isNearCompletion ? effectiveCost : fpNeeded,
+      isNearCompletion,
       myFP,
       baseRewardFP: baseReward,
       rewardFP: userReward,
       userProfit,
       profitPct:
-        threadPrice > 0 ? Math.round((userProfit / threadPrice) * 100) : 0,
+        effectiveCost > 0 ?
+          Math.round((userProfit / effectiveCost) * 100)
+        : 0,
       rewardMedals: medals[index],
       rewardBlueprints: blueprints[index],
     });
