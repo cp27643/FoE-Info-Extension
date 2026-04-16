@@ -164,11 +164,11 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 // Core scan data function — returns { profitable, total } without rendering.
 export async function scanFriendsData(onProgress) {
   const myId = MyInfo.id || PlayerID;
-  const friendList = friends.filter(
-    (e) =>
-      (e.is_friend || e.hasOwnProperty('is_friend')) &&
-      e.player_id != myId,
+  const friendsOnly = friends.filter(
+    (e) => e.is_friend || e.hasOwnProperty('is_friend'),
   );
+  const selfIdx = friendsOnly.findIndex((e) => e.player_id == myId);
+  const friendList = friendsOnly.filter((e) => e.player_id != myId);
   const total = friendList.length;
   console.log('[FriendsGB] Scanning', total, 'friends (batched)');
 
@@ -205,7 +205,8 @@ export async function scanFriendsData(onProgress) {
             (r) => r?.__class__ === 'GreatBuildingContributionRow',
           )
         : [];
-      overviewResults.push({ friend, friendIndex: i, rows });
+      const displayIdx = selfIdx >= 0 && i >= selfIdx ? i + 1 : i;
+      overviewResults.push({ friend, friendIndex: displayIdx, rows });
     }
   }
 
