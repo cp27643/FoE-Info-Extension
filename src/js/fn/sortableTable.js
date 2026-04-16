@@ -109,6 +109,35 @@ export function makeFilterable(table) {
   // Match numeric comparison operators like ">100", "<=50", "=200"
   const numericRe = /^([><=!]{1,2})\s*(-?\d+\.?\d*)$/;
 
+  function matchesTerm(cellText, term) {
+    const numMatch = term.match(numericRe);
+    if (numMatch) {
+      const op = numMatch[1];
+      const threshold = parseFloat(numMatch[2]);
+      const cellNum = parseFloat(cellText.replace(/[^0-9.\-]/g, ''));
+      if (isNaN(cellNum)) return false;
+      switch (op) {
+        case '>':
+          return cellNum > threshold;
+        case '<':
+          return cellNum < threshold;
+        case '>=':
+          return cellNum >= threshold;
+        case '<=':
+          return cellNum <= threshold;
+        case '=':
+        case '==':
+          return cellNum === threshold;
+        case '!=':
+          return cellNum !== threshold;
+        default:
+          return true;
+      }
+    }
+    // Text substring (case-insensitive)
+    return cellText.toLowerCase().includes(term.toLowerCase());
+  }
+
   function applyFilters() {
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
@@ -120,50 +149,15 @@ export function makeFilterable(table) {
         if (!filter) continue;
         const cellText = (row.cells[c]?.textContent ?? '').trim();
 
-        // Try numeric comparison first
-        const numMatch = filter.match(numericRe);
-        if (numMatch) {
-          const op = numMatch[1];
-          const threshold = parseFloat(numMatch[2]);
-          const cellNum = parseFloat(cellText.replace(/[^0-9.\-]/g, ''));
-          if (isNaN(cellNum)) {
-            visible = false;
-            break;
-          }
-          let pass = false;
-          switch (op) {
-            case '>':
-              pass = cellNum > threshold;
-              break;
-            case '<':
-              pass = cellNum < threshold;
-              break;
-            case '>=':
-              pass = cellNum >= threshold;
-              break;
-            case '<=':
-              pass = cellNum <= threshold;
-              break;
-            case '=':
-            case '==':
-              pass = cellNum === threshold;
-              break;
-            case '!=':
-              pass = cellNum !== threshold;
-              break;
-            default:
-              pass = true;
-          }
-          if (!pass) {
-            visible = false;
-            break;
-          }
-        } else {
-          // Fallback: case-insensitive substring
-          if (!cellText.toLowerCase().includes(filter.toLowerCase())) {
-            visible = false;
-            break;
-          }
+        // Split on "|" or " or " for OR logic; each term trimmed
+        const terms = filter
+          .split(/\||\bor\b/i)
+          .map((t) => t.trim())
+          .filter(Boolean);
+
+        if (!terms.some((term) => matchesTerm(cellText, term))) {
+          visible = false;
+          break;
         }
       }
       row.style.display = visible ? '' : 'none';
