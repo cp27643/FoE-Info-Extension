@@ -26,7 +26,7 @@ import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
 import * as collapse from '../fn/collapse.js';
 import { availableFP } from './ResourceService.js';
-import { makeSortable } from '../fn/sortableTable.js';
+import { makeSortable, makeFilterable } from '../fn/sortableTable.js';
 import { scanHoodData } from './NeighborGBService.js';
 import { scanFriendsData } from './FriendsGBService.js';
 import { scanGuildData } from './GuildGBService.js';
@@ -263,7 +263,10 @@ function showScanAllResults(allRows) {
   scanAllDiv.appendChild(resultsDiv);
 
   const tbl = scanAllDiv.querySelector('table');
-  if (tbl) makeSortable(tbl);
+  if (tbl) {
+    makeSortable(tbl);
+    makeFilterable(tbl);
+  }
 
   const csvBtn = scanAllDiv.querySelector('#scanAllCsvBtn');
   if (csvBtn) {

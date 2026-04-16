@@ -20,7 +20,7 @@ import * as copy from '../fn/copy.js';
 import * as element from '../fn/AddElement';
 import * as storage from '../fn/storage.js';
 import * as post_webstore from '../fn/post.js';
-import { makeSortable } from '../fn/sortableTable.js';
+import { makeSortable, makeFilterable } from '../fn/sortableTable.js';
 import {
   BuildingDefs,
   VolcanoProvinceDefs,
@@ -647,7 +647,10 @@ function checkProvinces() {
       const tooltip = new Tooltip(siegecamp_tooltip, options);
     }
     const targetGenTable = document.getElementById('targetGenTable');
-    if (targetGenTable) makeSortable(targetGenTable);
+    if (targetGenTable) {
+      makeSortable(targetGenTable);
+      makeFilterable(targetGenTable);
+    }
   }
 }
 

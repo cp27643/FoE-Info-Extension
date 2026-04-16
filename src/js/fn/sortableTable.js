@@ -25,7 +25,10 @@ export function makeSortable(table) {
     th.style.userSelect = 'none';
     th.title = 'Click to sort';
 
-    th.addEventListener('click', () => {
+    th.addEventListener('click', (e) => {
+      // Don't sort when clicking the filter input
+      if (e.target.tagName === 'INPUT') return;
+
       const tbody = table.querySelector('tbody');
       if (!tbody) return;
       const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -69,4 +72,55 @@ export function makeSortable(table) {
       });
     });
   });
+}
+
+// Adds a small text filter input below each column header.
+// Typing filters rows to only show those matching ALL column filters.
+export function makeFilterable(table) {
+  const thead = table.querySelector('thead');
+  if (!thead) return;
+
+  // Add a filter row below the header row
+  let filterRow = thead.querySelector('.filter-row');
+  if (filterRow) return; // already set up
+  filterRow = document.createElement('tr');
+  filterRow.className = 'filter-row';
+
+  const headers = thead.querySelectorAll('th');
+  const inputs = [];
+
+  headers.forEach((_, colIndex) => {
+    const td = document.createElement('th');
+    td.style.padding = '2px';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '🔍';
+    input.style.cssText =
+      'width:100%;font-size:11px;padding:1px 4px;box-sizing:border-box;';
+    input.addEventListener('input', () => applyFilters());
+    inputs.push(input);
+    td.appendChild(input);
+    filterRow.appendChild(td);
+  });
+
+  thead.appendChild(filterRow);
+
+  function applyFilters() {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const rows = tbody.querySelectorAll('tr');
+    for (const row of rows) {
+      let visible = true;
+      for (let c = 0; c < inputs.length; c++) {
+        const filter = inputs[c].value.toLowerCase().trim();
+        if (!filter) continue;
+        const cellText = (row.cells[c]?.textContent ?? '').toLowerCase();
+        if (!cellText.includes(filter)) {
+          visible = false;
+          break;
+        }
+      }
+      row.style.display = visible ? '' : 'none';
+    }
+  }
 }
