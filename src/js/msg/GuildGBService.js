@@ -431,13 +431,11 @@ async function exportGuild19ToExcel(dedupedSpots, filename) {
 // Core scan data function — returns { profitable, total } without rendering.
 export async function scanGuildData(onProgress) {
   const myId = MyInfo.id || PlayerID;
-  const memberList = guildMembers
-    .map((e, idx) => ({ ...e, _origIndex: idx }))
-    .filter(
-      (e) =>
-        (e.is_guild_member || e.hasOwnProperty('is_guild_member')) &&
-        e.player_id != myId,
-    );
+  const memberList = guildMembers.filter(
+    (e) =>
+      (e.is_guild_member || e.hasOwnProperty('is_guild_member')) &&
+      e.player_id != myId,
+  );
   const total = memberList.length;
   console.log('[GuildGB] Scanning', total, 'guild members (batched)');
 
@@ -474,7 +472,7 @@ export async function scanGuildData(onProgress) {
             (r) => r?.__class__ === 'GreatBuildingContributionRow',
           )
         : [];
-      overviewResults.push({ member, memberIndex: member._origIndex, rows });
+      overviewResults.push({ member, memberIndex: i, rows });
     }
   }
 

@@ -939,13 +939,11 @@ export async function onNeighborOverviewReceived(responseData) {
 // Used by both the individual scan button and the Scan All feature.
 export async function scanHoodData(onProgress) {
   const myId = MyInfo.id || PlayerID;
-  const neighbors = hoodlist
-    .map((e, idx) => ({ ...e, _origIndex: idx }))
-    .filter(
-      (e) =>
-        (e.is_neighbor || e.hasOwnProperty('is_neighbor')) &&
-        e.player_id != myId,
-    );
+  const neighbors = hoodlist.filter(
+    (e) =>
+      (e.is_neighbor || e.hasOwnProperty('is_neighbor')) &&
+      e.player_id != myId,
+  );
   const total = neighbors.length;
   console.log('[NeighborGB] Scanning', total, 'neighbors (batched)');
 
@@ -983,7 +981,7 @@ export async function scanHoodData(onProgress) {
             (r) => r?.__class__ === 'GreatBuildingContributionRow',
           )
         : [];
-      overviewResults.push({ neighbor, neighborIndex: neighbor._origIndex, rows });
+      overviewResults.push({ neighbor, neighborIndex: i, rows });
     }
   }
 
