@@ -20,7 +20,13 @@
  * "Source" column identifying where each opportunity came from.
  */
 
-import { scanAllDiv, availablePacksFP, url, MyInfo, PlayerID } from '../index.js';
+import {
+  scanAllDiv,
+  availablePacksFP,
+  url,
+  MyInfo,
+  PlayerID,
+} from '../index.js';
 import { hoodlist, friends, guildMembers } from './OtherPlayerService.js';
 import { City } from './StartupService.js';
 import * as element from '../fn/AddElement';
@@ -198,7 +204,7 @@ function showScanAllResults(allRows) {
     html += `<table class="table table-sm table-borderless mb-0">
       <thead><tr>
         <th>Pick</th><th>Source</th><th>#</th><th>Player</th><th>Building</th><th>Progress</th><th>Rank</th>
-        <th>Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>BPs</th>
+        <th>Cost</th><th>Reward</th><th>Profit</th><th>ROI</th><th>Medals</th><th>M/C</th><th>BPs</th>
       </tr></thead><tbody>`;
 
     // Sort: picks first, then by profit descending
@@ -229,6 +235,9 @@ function showScanAllResults(allRows) {
         : row.source === 'Friends' ? 'bg-info text-dark'
         : 'bg-success';
 
+      const medalsPerCost =
+        row.cost > 0 ? (row.medals / row.cost).toFixed(1) : '—';
+
       html += `<tr class="${rowClass}" data-pick="${isPick ? '1' : '0'}">
         <td>${isPick ? '✅' : ''}</td>
         <td><span class="badge ${sourceBadge}">${row.source}</span></td>
@@ -242,6 +251,7 @@ function showScanAllResults(allRows) {
         <td class="${profitClass}">${row.profit}</td>
         <td>${row.roi}%</td>
         <td>${row.medals}</td>
+        <td>${medalsPerCost}</td>
         <td>${row.bps}</td>
       </tr>`;
     }
@@ -386,6 +396,7 @@ async function exportScanAllToExcel(allRows, filename) {
     'Profit',
     'ROI',
     'Medals',
+    'M/C',
     'BPs',
   ];
   const headerRow = ws.addRow(headers);
@@ -405,6 +416,8 @@ async function exportScanAllToExcel(allRows, filename) {
   const totalFP = (availablePacksFP || 0) + (availableFP || 0);
 
   for (const r of allRows) {
+    const medalsPerCost =
+      r.cost > 0 ? Math.round((r.medals / r.cost) * 10) / 10 : 0;
     const row = ws.addRow([
       r.source,
       r.number,
@@ -417,11 +430,13 @@ async function exportScanAllToExcel(allRows, filename) {
       r.profit,
       r.roi / 100,
       r.medals,
+      medalsPerCost,
       r.bps,
     ]);
 
     row.getCell(5).numFmt = '0%';
     row.getCell(10).numFmt = '0%';
+    row.getCell(12).numFmt = '0.0';
 
     const canAfford = totalFP > 0 && r.cost <= totalFP;
     if (totalFP > 0) {
@@ -460,6 +475,7 @@ async function exportScanAllToExcel(allRows, filename) {
     { width: 10 },
     { width: 8 },
     { width: 10 },
+    { width: 8 },
     { width: 8 },
   ];
 
@@ -541,8 +557,7 @@ async function collectAllRows(onProgress) {
     checkScanAbort();
     try {
       const { profitable } = await scanHoodData(
-        (msg) =>
-          onProgress?.(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
+        (msg) => onProgress?.(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
         { abortCheck: checkScanAbort },
       );
       const rows = normalizeSnipeSpots(profitable, 'Hood');
@@ -581,8 +596,7 @@ async function collectAllRows(onProgress) {
     checkScanAbort();
     try {
       const { profitable } = await scanGuildData(
-        (msg) =>
-          onProgress?.(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
+        (msg) => onProgress?.(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
         { abortCheck: checkScanAbort },
       );
       const rows = normalize19Spots(profitable, 'Guild');
@@ -615,7 +629,6 @@ async function collectAllRows(onProgress) {
   deduped.sort((a, b) => b.profit - a.profit);
   return { allRows: deduped, sources, empty: deduped.length === 0 };
 }
-
 
 // ---------------------------------------------------------------------------
 // Manual scan — runs all scans with UI feedback

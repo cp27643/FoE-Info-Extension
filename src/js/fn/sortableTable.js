@@ -74,8 +74,9 @@ export function makeSortable(table) {
   });
 }
 
-// Adds a small text filter input below each column header.
-// Typing filters rows to only show those matching ALL column filters.
+// Adds a small filter input below each column header.
+// Text columns: case-insensitive substring match.
+// Numeric columns: support operators (>, <, >=, <=, =) or plain substring.
 export function makeFilterable(table) {
   const thead = table.querySelector('thead');
   if (!thead) return;
@@ -105,6 +106,9 @@ export function makeFilterable(table) {
 
   thead.appendChild(filterRow);
 
+  // Match numeric comparison operators like ">100", "<=50", "=200"
+  const numericRe = /^([><=!]{1,2})\s*(-?\d+\.?\d*)$/;
+
   function applyFilters() {
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
@@ -112,12 +116,54 @@ export function makeFilterable(table) {
     for (const row of rows) {
       let visible = true;
       for (let c = 0; c < inputs.length; c++) {
-        const filter = inputs[c].value.toLowerCase().trim();
+        const filter = inputs[c].value.trim();
         if (!filter) continue;
-        const cellText = (row.cells[c]?.textContent ?? '').toLowerCase();
-        if (!cellText.includes(filter)) {
-          visible = false;
-          break;
+        const cellText = (row.cells[c]?.textContent ?? '').trim();
+
+        // Try numeric comparison first
+        const numMatch = filter.match(numericRe);
+        if (numMatch) {
+          const op = numMatch[1];
+          const threshold = parseFloat(numMatch[2]);
+          const cellNum = parseFloat(cellText.replace(/[^0-9.\-]/g, ''));
+          if (isNaN(cellNum)) {
+            visible = false;
+            break;
+          }
+          let pass = false;
+          switch (op) {
+            case '>':
+              pass = cellNum > threshold;
+              break;
+            case '<':
+              pass = cellNum < threshold;
+              break;
+            case '>=':
+              pass = cellNum >= threshold;
+              break;
+            case '<=':
+              pass = cellNum <= threshold;
+              break;
+            case '=':
+            case '==':
+              pass = cellNum === threshold;
+              break;
+            case '!=':
+              pass = cellNum !== threshold;
+              break;
+            default:
+              pass = true;
+          }
+          if (!pass) {
+            visible = false;
+            break;
+          }
+        } else {
+          // Fallback: case-insensitive substring
+          if (!cellText.toLowerCase().includes(filter.toLowerCase())) {
+            visible = false;
+            break;
+          }
         }
       }
       row.style.display = visible ? '' : 'none';
