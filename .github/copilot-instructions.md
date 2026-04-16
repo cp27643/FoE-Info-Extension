@@ -47,6 +47,7 @@ Chrome/Firefox browser extension (Manifest V3) for Forge of Empires. It injects 
   - `AddElement.js` — DOM helper functions for collapse icons, copy/post buttons, close buttons
   - `requestIdTracker.js` — Sends signed game API requests from the page context via `chrome.devtools.inspectedWindow.eval()`
   - `collapse.js` — Collapse state toggles for each panel section
+  - `sortableTable.js` — Reusable table utilities: `makeSortable()` (click-to-sort columns, ignores clicks on filter inputs) and `makeFilterable()` (adds text filter inputs below headers, case-insensitive AND logic)
 - `src/js/vars/` — Feature toggle flags (`showOptions` object)
 - `src/i18n/` — Localization JSON files (jQuery i18n). Keys used via `$.i18n('key')`.
 - `src/chrome/` — Manifests and HTML templates. `manifest.json` for dev, `manifest_release.json` for webstore, `manifest_firefox.json` for Firefox.
@@ -130,19 +131,26 @@ All GB scanners (hood, friends, guild, scan all) support exporting results to `.
 
 All three GB scanners (hood, friends, guild) follow a common refactored pattern:
 
-1. **Data function** — Each scanner exports a `scanXxxData(onProgress)` function that returns `{ profitable, total }` without rendering. The `onProgress` callback receives status message strings for progress updates.
+1. **Data function** — Each scanner exports a `scanXxxData(onProgress, { abortCheck })` function that returns `{ profitable, total }` without rendering. The `onProgress` callback receives status message strings for progress updates. The optional `abortCheck` function is called between waves to support scan cancellation.
 2. **Render function** — A separate `showXxxResults()` function takes the profitable spots array and renders the HTML table with collapse, sorting, and Excel export.
 3. **Button handler** — A thin wrapper that calls the data function then the render function.
 4. **Scan All integration** — `ScanAllService.js` calls the data functions directly, normalizes the different spot formats into unified rows, and renders a combined table.
 
+**Self-detection in profit calculators**: Both `calculateProfitableSpots()` (hood/friends) and `calculate19Spots()` (guild) detect the user's current rank on each building using `MyInfo.id` (set reliably from `StartupService.getData` at login) with `PlayerID` as a fallback. When the user already holds a rank, positions worse than that rank are skipped (e.g., won't recommend P2 if you hold P1). The `is_self` flag on ranking entries provides a first check, with `player_id` comparison as a secondary check.
+
+**Player index numbering**: The game's social bar numbers only actual friends (not guild-only or neighbor-only entries), sequentially 1–N, including self in the count. Scanners compute display indices by: filtering to friends-only, finding self's position, removing self from the scan list, then offsetting indices after self's position by +1 to match the game's numbering.
+
 ### Scan All (ScanAllService.js)
 
-Runs hood → friends → guild scans sequentially, merging results into one sortable table with color-coded source badges (Hood=yellow, Friends=blue, Guild=green).
+Runs hood → friends → guild scans sequentially, merging results into one sortable, filterable table with color-coded source badges (Hood=yellow, Friends=blue, Guild=green).
 
 - **Progress bar**: Bootstrap animated striped progress bar with step labels. Uses a lightweight `showProgress()` function that only updates a dedicated progress container — does NOT rebuild the entire DOM on each step.
 - **Normalization**: `normalizeSnipeSpots()` and `normalize19Spots()` convert scanner-specific spot objects into unified rows with common fields: source, number, playerName, building, progress, rank, holder, cost, reward, profit, roi, medals, bps.
 - **Shared scan logic**: `collectAllRows(onProgress)` extracts the core scan/merge logic for reuse by both manual Scan All and auto-scan. Returns `{ allRows, sources, empty }` without touching the DOM.
 - **Scan lock**: Module-level `scanInProgress` flag prevents manual and auto scans from running simultaneously.
+- **Stop button**: A red "⛔ Stop Scan" button appears during scanning and sets a `scanAborted` flag. The flag is checked between scan phases (hood → friends → guild) and between request waves via the `abortCheck` parameter threaded through all scanners and `postChunkedBatchRequest()`.
+- **Show Picks Only**: Toggle button filters the table to show only strategy-highlighted (yellow) rows.
+- **Column filtering**: `makeFilterable()` adds text filter inputs below each column header for case-insensitive substring filtering.
 - **Rendering**: Results panel is appended after the button row (not innerHTML replacement) to preserve button state. Results always render expanded.
 
 ### Strategy Insights (ScanAllService.js)
@@ -174,7 +182,7 @@ Calculates break-even FP contributions for participating in a 1.9 thread:
   - **Vacant**: `fpNeeded = threadPrice` (nobody to beat).
   - **Self-held**: `fpNeeded = threadPrice - currentFP` (top up your own position).
   - **Other-held**: `fpNeeded = threadPrice` (must beat their total); skip if `threadPrice <= currentFP` (can't beat them).
-- **Safety check**: Thread price must >= lock cost (`max(ceil((maxBelowFP + remaining) / 2), currentFP + 1)`) — positions only shown if safe to take.
+- **Safety check**: Thread price must >= lock cost (`max(ceil((maxBelowFP + remaining) / 2), currentFP + 1)`) — positions only shown if safe to take. Positions worse than the user's current rank are skipped (e.g., won't recommend P3 if you hold P2).
 - **Near-completion**: When `remainingFP < fpNeeded` (building almost done), effective cost = `remainingFP` (finish the building for the guild member). Must still beat holder: skip if `remainingFP <= currentFP` for other-held positions. These are often the most profitable opportunities (e.g., 3 FP for a 162 FP reward).
 - **Arc bonus on all rewards**: FP, medals, and blueprints are all multiplied by the user's Arc multiplier (`1 + arcBonus/100`). At 90% Arc: `1.9×` on all reward types.
 - **Profit**: `Math.round(baseReward * userArcMultiplier) - effectiveCost`. At 90% Arc, profit is zero for normal 1.9 fills; above 90% profit is positive.
