@@ -564,8 +564,20 @@ async function collectAllRows(onProgress) {
   const myId = MyInfo.id || PlayerID;
   const filtered = myId ? allRows.filter((r) => r.playerId != myId) : allRows;
 
-  filtered.sort((a, b) => b.profit - a.profit);
-  return { allRows: filtered, sources, empty: filtered.length === 0 };
+  // Deduplicate — same player+building+rank from different sources is the same opportunity.
+  // Keep the first occurrence (Hood before Friends before Guild).
+  const seen = new Set();
+  const deduped = [];
+  for (const row of filtered) {
+    const key = `${row.playerId}|${row.building}|${row.rank}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(row);
+    }
+  }
+
+  deduped.sort((a, b) => b.profit - a.profit);
+  return { allRows: deduped, sources, empty: deduped.length === 0 };
 }
 
 
