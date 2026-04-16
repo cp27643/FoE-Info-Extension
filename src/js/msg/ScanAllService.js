@@ -166,6 +166,7 @@ function showScanAllResults(allRows) {
 
     html += `<div class="d-flex align-items-center gap-2 flex-wrap mb-2">
       <span class="small text-muted">${fpLabel}</span>
+      <button id="scanAllFilterPicksBtn" class="btn btn-sm btn-outline-warning">⭐ Show Picks Only</button>
       <button id="scanAllCsvBtn" class="btn btn-sm btn-outline-secondary">📊 Export Excel</button>
     </div>`;
 
@@ -228,7 +229,7 @@ function showScanAllResults(allRows) {
         : row.source === 'Friends' ? 'bg-info text-dark'
         : 'bg-success';
 
-      html += `<tr class="${rowClass}">
+      html += `<tr class="${rowClass}" data-pick="${isPick ? '1' : '0'}">
         <td>${isPick ? '✅' : ''}</td>
         <td><span class="badge ${sourceBadge}">${row.source}</span></td>
         <td>${row.number}</td>
@@ -269,6 +270,21 @@ function showScanAllResults(allRows) {
     csvBtn.addEventListener('click', () =>
       exportScanAllToExcel(allRows, 'scan_all_gb'),
     );
+  }
+
+  const filterBtn = scanAllDiv.querySelector('#scanAllFilterPicksBtn');
+  if (filterBtn && tbl) {
+    let showAll = true;
+    filterBtn.addEventListener('click', () => {
+      showAll = !showAll;
+      const rows = tbl.querySelectorAll('tbody tr');
+      for (const row of rows) {
+        row.style.display = showAll || row.dataset.pick === '1' ? '' : 'none';
+      }
+      filterBtn.textContent = showAll ? '⭐ Show Picks Only' : '📋 Show All';
+      filterBtn.classList.toggle('btn-outline-warning', showAll);
+      filterBtn.classList.toggle('btn-warning', !showAll);
+    });
   }
 
   const dropdown = scanAllDiv.querySelector('#strategyDropdown');
