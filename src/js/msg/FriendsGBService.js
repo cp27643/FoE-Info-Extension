@@ -162,7 +162,7 @@ function showFriendsScanResults(profitable, scanned, total, statusMsg) {
 // ---------------------------------------------------------------------------
 
 // Core scan data function — returns { profitable, total } without rendering.
-export async function scanFriendsData(onProgress) {
+export async function scanFriendsData(onProgress, { abortCheck } = {}) {
   const myId = MyInfo.id || PlayerID;
   const friendsOnly = friends.filter(
     (e) => e.is_friend || e.hasOwnProperty('is_friend'),
@@ -180,7 +180,9 @@ export async function scanFriendsData(onProgress) {
   }));
 
   if (onProgress) onProgress('Fetching friend overviews…');
-  const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
+  const overviewResponse = await postChunkedBatchRequest(overviewPayloads, {
+    abortCheck,
+  });
 
   const overviewResults = [];
   if (Array.isArray(overviewResponse)) {
@@ -254,8 +256,10 @@ export async function scanFriendsData(onProgress) {
   if (constructionPayloads.length > 0) {
     if (onProgress)
       onProgress(`Fetching ${constructionPayloads.length} building details…`);
-    const constructionResponse =
-      await postChunkedBatchRequest(constructionPayloads);
+    const constructionResponse = await postChunkedBatchRequest(
+      constructionPayloads,
+      { abortCheck },
+    );
 
     const constructionResults =
       Array.isArray(constructionResponse) ?

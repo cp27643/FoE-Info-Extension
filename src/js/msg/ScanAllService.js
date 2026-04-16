@@ -514,6 +514,11 @@ function clearProgress() {
 // ---------------------------------------------------------------------------
 
 let scanInProgress = false;
+let scanAborted = false;
+
+function checkScanAbort() {
+  if (scanAborted) throw new Error('Scan aborted by user');
+}
 
 async function collectAllRows(onProgress) {
   const allRows = [];
@@ -530,14 +535,18 @@ async function collectAllRows(onProgress) {
   let baseProgress = 0;
 
   if (hoodlist.length > 0) {
+    checkScanAbort();
     try {
-      const { profitable } = await scanHoodData((msg) =>
-        onProgress?.(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
+      const { profitable } = await scanHoodData(
+        (msg) =>
+          onProgress?.(baseProgress + stepWeight * 0.3, `Hood: ${msg}`),
+        { abortCheck: checkScanAbort },
       );
       const rows = normalizeSnipeSpots(profitable, 'Hood');
       allRows.push(...rows);
       sources.push(`Hood: ${rows.length}`);
     } catch (e) {
+      if (scanAborted) throw e;
       console.warn('[ScanAll] Hood scan failed:', e);
       sources.push('Hood: failed');
     }
@@ -546,14 +555,18 @@ async function collectAllRows(onProgress) {
   }
 
   if (friends.length > 0) {
+    checkScanAbort();
     try {
-      const { profitable } = await scanFriendsData((msg) =>
-        onProgress?.(baseProgress + stepWeight * 0.3, `Friends: ${msg}`),
+      const { profitable } = await scanFriendsData(
+        (msg) =>
+          onProgress?.(baseProgress + stepWeight * 0.3, `Friends: ${msg}`),
+        { abortCheck: checkScanAbort },
       );
       const rows = normalizeSnipeSpots(profitable, 'Friends');
       allRows.push(...rows);
       sources.push(`Friends: ${rows.length}`);
     } catch (e) {
+      if (scanAborted) throw e;
       console.warn('[ScanAll] Friends scan failed:', e);
       sources.push('Friends: failed');
     }
@@ -562,14 +575,18 @@ async function collectAllRows(onProgress) {
   }
 
   if (guildMembers.length > 0) {
+    checkScanAbort();
     try {
-      const { profitable } = await scanGuildData((msg) =>
-        onProgress?.(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
+      const { profitable } = await scanGuildData(
+        (msg) =>
+          onProgress?.(baseProgress + stepWeight * 0.3, `Guild: ${msg}`),
+        { abortCheck: checkScanAbort },
       );
       const rows = normalize19Spots(profitable, 'Guild');
       allRows.push(...rows);
       sources.push(`Guild: ${rows.length}`);
     } catch (e) {
+      if (scanAborted) throw e;
       console.warn('[ScanAll] Guild scan failed:', e);
       sources.push('Guild: failed');
     }
@@ -604,6 +621,7 @@ async function collectAllRows(onProgress) {
 async function runScanAll() {
   if (scanInProgress) return;
   scanInProgress = true;
+  scanAborted = false;
   console.log('[ScanAll] === SCAN ALL CLICKED ===');
 
   const btn = scanAllDiv.querySelector('#scanAllBtn');
@@ -611,6 +629,24 @@ async function runScanAll() {
     btn.disabled = true;
     btn.textContent = '⏳ Scanning all…';
   }
+
+  // Show stop button
+  let stopBtn = scanAllDiv.querySelector('#scanAllStopBtn');
+  if (!stopBtn) {
+    stopBtn = document.createElement('button');
+    stopBtn.id = 'scanAllStopBtn';
+    stopBtn.className = 'btn btn-sm btn-danger ms-2';
+    stopBtn.textContent = '⛔ Stop Scan';
+    const btnRow = scanAllDiv.querySelector('#scanAllBtnRow');
+    if (btnRow) btnRow.appendChild(stopBtn);
+  }
+  stopBtn.style.display = '';
+  stopBtn.disabled = false;
+  stopBtn.onclick = () => {
+    scanAborted = true;
+    stopBtn.disabled = true;
+    stopBtn.textContent = '⏹️ Stopping…';
+  };
 
   const oldWrapper = scanAllDiv.querySelector('#scanAllResults');
   if (oldWrapper) oldWrapper.remove();
@@ -629,12 +665,23 @@ async function runScanAll() {
     clearProgress();
     showScanAllResults(allRows);
     console.log('[ScanAll] Complete —', sources.join(', '));
+  } catch (e) {
+    if (scanAborted) {
+      clearProgress();
+      showProgress(100, '⛔ Scan stopped.');
+      console.log('[ScanAll] Aborted by user');
+    } else {
+      throw e;
+    }
   } finally {
     scanInProgress = false;
+    scanAborted = false;
     if (btn) {
       btn.disabled = false;
       btn.textContent = '🔍 Scan All';
     }
+    const stop = scanAllDiv.querySelector('#scanAllStopBtn');
+    if (stop) stop.style.display = 'none';
   }
 }
 

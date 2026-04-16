@@ -429,7 +429,7 @@ async function exportGuild19ToExcel(dedupedSpots, filename) {
 // ---------------------------------------------------------------------------
 
 // Core scan data function — returns { profitable, total } without rendering.
-export async function scanGuildData(onProgress) {
+export async function scanGuildData(onProgress, { abortCheck } = {}) {
   const myId = MyInfo.id || PlayerID;
   const membersOnly = guildMembers.filter(
     (e) => e.is_guild_member || e.hasOwnProperty('is_guild_member'),
@@ -447,7 +447,9 @@ export async function scanGuildData(onProgress) {
   }));
 
   if (onProgress) onProgress('Fetching guild member overviews…');
-  const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
+  const overviewResponse = await postChunkedBatchRequest(overviewPayloads, {
+    abortCheck,
+  });
 
   const overviewResults = [];
   if (Array.isArray(overviewResponse)) {
@@ -521,8 +523,10 @@ export async function scanGuildData(onProgress) {
   if (constructionPayloads.length > 0) {
     if (onProgress)
       onProgress(`Fetching ${constructionPayloads.length} building details…`);
-    const constructionResponse =
-      await postChunkedBatchRequest(constructionPayloads);
+    const constructionResponse = await postChunkedBatchRequest(
+      constructionPayloads,
+      { abortCheck },
+    );
 
     const constructionResults =
       Array.isArray(constructionResponse) ?

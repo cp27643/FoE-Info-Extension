@@ -245,7 +245,7 @@ const BATCH_CHUNK_SIZE = 5;
 const MAX_WAVE_SIZE = 20;
 const WAVE_GAP_MS = 500;
 
-export async function postChunkedBatchRequest(payloads) {
+export async function postChunkedBatchRequest(payloads, { abortCheck } = {}) {
   if (!gameJsonUrl) {
     throw new Error(
       'Game URL not captured yet — play the game for a moment so network traffic is intercepted.',
@@ -268,6 +268,7 @@ export async function postChunkedBatchRequest(payloads) {
   const allGroups = [];
 
   for (let w = 0; w < waves.length; w++) {
+    if (abortCheck) abortCheck();
     if (w > 0) await new Promise((res) => setTimeout(res, WAVE_GAP_MS));
 
     const batchGroups = waves[w].map((chunk) => ({
@@ -937,7 +938,7 @@ export async function onNeighborOverviewReceived(responseData) {
 // overviews, one XHR for all constructions. Renders results into gbScanDiv.
 // Core scan data function — returns { profitable, total } without rendering.
 // Used by both the individual scan button and the Scan All feature.
-export async function scanHoodData(onProgress) {
+export async function scanHoodData(onProgress, { abortCheck } = {}) {
   const myId = MyInfo.id || PlayerID;
   const neighborsOnly = hoodlist.filter(
     (e) => e.is_neighbor || e.hasOwnProperty('is_neighbor'),
@@ -955,7 +956,9 @@ export async function scanHoodData(onProgress) {
   }));
 
   if (onProgress) onProgress('Fetching neighbor overviews…');
-  const overviewResponse = await postChunkedBatchRequest(overviewPayloads);
+  const overviewResponse = await postChunkedBatchRequest(overviewPayloads, {
+    abortCheck,
+  });
 
   const overviewResults = [];
   if (Array.isArray(overviewResponse)) {
@@ -1030,8 +1033,10 @@ export async function scanHoodData(onProgress) {
   if (constructionPayloads.length > 0) {
     if (onProgress)
       onProgress(`Fetching ${constructionPayloads.length} building details…`);
-    const constructionResponse =
-      await postChunkedBatchRequest(constructionPayloads);
+    const constructionResponse = await postChunkedBatchRequest(
+      constructionPayloads,
+      { abortCheck },
+    );
 
     const constructionResults =
       Array.isArray(constructionResponse) ?
