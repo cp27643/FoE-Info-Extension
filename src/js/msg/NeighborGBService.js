@@ -414,24 +414,28 @@ export function calculateProfitableSpots(rankings, remaining, arcBonus) {
   const medals = [0, 0, 0, 0, 0];
   const blueprints = [0, 0, 0, 0, 0];
 
+  const myId = MyInfo.id || PlayerID;
+
   // Find the user's current rank and FP on this building
   let myRank = 0;
   let myFP = 0;
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
+    const isSelf =
+      place.player?.is_self || place.player?.player_id == myId;
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
       medals[rank - 1] = place.reward?.resources?.medals ?? 0;
       blueprints[rank - 1] = place.reward?.blueprints ?? 0;
-      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+      if (isSelf) {
         myRank = rank;
         myFP = place.forge_points ?? 0;
       }
     } else if (rank === 6) {
       Top[5] = place.forge_points ?? 0;
-      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+      if (isSelf) {
         myFP = place.forge_points ?? 0;
       }
     }

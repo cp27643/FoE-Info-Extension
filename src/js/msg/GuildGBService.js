@@ -62,23 +62,27 @@ function calculate19Spots(rankings, remaining, arcBonus) {
   const medals = [0, 0, 0, 0, 0];
   const blueprints = [0, 0, 0, 0, 0];
 
+  const myId = MyInfo.id || PlayerID;
+
   let myRank = 0;
   let myFP = 0;
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
+    const isSelf =
+      place.player?.is_self || place.player?.player_id == myId;
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
       medals[rank - 1] = place.reward?.resources?.medals ?? 0;
       blueprints[rank - 1] = place.reward?.blueprints ?? 0;
-      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+      if (isSelf) {
         myRank = rank;
         myFP = place.forge_points ?? 0;
       }
     } else if (rank === 6) {
       Top[5] = place.forge_points ?? 0;
-      if (place.player?.is_self || place.player?.player_id == PlayerID) {
+      if (isSelf) {
         myFP = place.forge_points ?? 0;
       }
     }
@@ -93,6 +97,10 @@ function calculate19Spots(rankings, remaining, arcBonus) {
     if (!rewards[index]) continue;
 
     const rank = index + 1;
+
+    // Skip ranks worse than our current rank (higher number = worse)
+    if (myRank > 0 && rank > myRank) continue;
+
     const baseReward = rewards[index];
 
     // Who holds this position?
@@ -102,7 +110,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       holderEntry.player.name === 'No contributor yet';
     const isSelf =
       holderEntry?.player?.is_self ||
-      holderEntry?.player?.player_id == PlayerID;
+      holderEntry?.player?.player_id == myId;
 
     // 1.9 price: the break-even contribution at 1.9× multiplier
     const threadPrice = Math.round(baseReward * THREAD_MULTIPLIER);
