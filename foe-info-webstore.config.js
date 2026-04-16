@@ -153,6 +153,12 @@ module.exports = {
     new CopyPlugin({
       patterns: [{ from: 'src/js/wsProxy.js', to: './' }],
     }),
+    new CopyPlugin({
+      patterns: [{ from: 'src/js/wsBridge.js', to: './' }],
+    }),
+    new CopyPlugin({
+      patterns: [{ from: 'src/js/background.js', to: './' }],
+    }),
     new WebpackExtensionManifestPlugin({
       config: {
         base: baseManifest,

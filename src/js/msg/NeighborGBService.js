@@ -422,8 +422,7 @@ export function calculateProfitableSpots(rankings, remaining, arcBonus) {
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
-    const isSelf =
-      place.player?.is_self || place.player?.player_id == myId;
+    const isSelf = place.player?.is_self || place.player?.player_id == myId;
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;

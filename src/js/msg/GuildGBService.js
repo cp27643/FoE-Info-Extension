@@ -69,8 +69,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
   for (const place of rankings ?? []) {
     const rank = place.rank;
     if (!rank) continue;
-    const isSelf =
-      place.player?.is_self || place.player?.player_id == myId;
+    const isSelf = place.player?.is_self || place.player?.player_id == myId;
     if (rank >= 1 && rank <= 5) {
       Top[rank - 1] = place.forge_points ?? 0;
       rewards[rank - 1] = place.reward?.strategy_point_amount ?? 0;
@@ -109,8 +108,7 @@ function calculate19Spots(rankings, remaining, arcBonus) {
       !holderEntry?.player?.name ||
       holderEntry.player.name === 'No contributor yet';
     const isSelf =
-      holderEntry?.player?.is_self ||
-      holderEntry?.player?.player_id == myId;
+      holderEntry?.player?.is_self || holderEntry?.player?.player_id == myId;
 
     // 1.9 price: the break-even contribution at 1.9× multiplier
     const threadPrice = Math.round(baseReward * THREAD_MULTIPLIER);

@@ -44,7 +44,7 @@ let participants = [];
 let ourParticipantId = 0;
 let provinceDefs = [];
 let pollTimerId = null;
-let wsListenerTimerId = null;
+let bgPort = null; // port to background service worker
 let isMonitoring = false;
 let monitorDiv = null;
 let lastAlerts = new Map(); // key → timestamp for debounce
@@ -54,7 +54,6 @@ let activeFilter = null; // null = show all, or 'ours'|'attack'|'unlocked'
 // Configurable thresholds
 const LOCK_WARN_MINUTES = 5;
 const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min debounce per event
-const WS_DRAIN_INTERVAL = 2000; // check for new WS messages every 2s
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -215,40 +214,44 @@ function diffProvinces(oldMap, newMap) {
 }
 
 // ---------------------------------------------------------------------------
-// WebSocket message drain — reads GBG messages queued by wsProxy.js
+// Background port — receives GBG messages via event-based relay
+// (wsProxy.js → wsBridge.js → background.js → here)
 // ---------------------------------------------------------------------------
 
-function drainWsMessages() {
-  if (!isMonitoring) return;
+function connectToBackground() {
+  if (bgPort) return; // already connected
 
-  chrome.devtools.inspectedWindow.eval(
-    `(function() {
-      var q = window.__foeInfoWsMessages;
-      if (!q || !q.length) return null;
-      var msgs = q.splice(0, q.length);
-      return JSON.stringify(msgs);
-    })()`,
-    (result, isException) => {
-      if (isException || !result) {
-        scheduleNextDrain();
-        return;
+  try {
+    bgPort = chrome.runtime.connect({ name: 'foe-info-gbg' });
+
+    // Tell the background which tab we're inspecting
+    bgPort.postMessage({
+      type: 'init',
+      tabId: chrome.devtools.inspectedWindow.tabId,
+    });
+
+    bgPort.onMessage.addListener((msg) => {
+      if (msg.type === 'foe-info-ws-gbg' && isMonitoring) {
+        processWsMessages(msg.payload);
       }
+    });
 
-      try {
-        const messages = JSON.parse(result);
-        processWsMessages(messages);
-      } catch (e) {
-        console.warn('[GBGMonitor] Failed to parse WS messages:', e);
+    bgPort.onDisconnect.addListener(() => {
+      bgPort = null;
+      // Reconnect after a short delay if still monitoring
+      if (isMonitoring) {
+        setTimeout(connectToBackground, 1000);
       }
+    });
 
-      scheduleNextDrain();
-    },
-  );
-}
-
-function scheduleNextDrain() {
-  if (isMonitoring) {
-    wsListenerTimerId = setTimeout(drainWsMessages, WS_DRAIN_INTERVAL);
+    console.log('[GBGMonitor] Connected to background service worker');
+  } catch (e) {
+    bgPort = null;
+    console.warn('[GBGMonitor] Failed to connect to background:', e);
+    // Retry after delay if still monitoring
+    if (isMonitoring) {
+      setTimeout(connectToBackground, 2000);
+    }
   }
 }
 
@@ -395,16 +398,20 @@ export function onBattlegroundUpdate(responseData) {
 export function startMonitoring() {
   if (isMonitoring) return;
   isMonitoring = true;
-  console.log('[GBGMonitor] Monitoring started (WebSocket listener)');
+  console.log('[GBGMonitor] Monitoring started (event-based WebSocket relay)');
   updateMonitorButton();
-  drainWsMessages();
+  connectToBackground();
 }
 
 export function stopMonitoring() {
   isMonitoring = false;
-  if (wsListenerTimerId) {
-    clearTimeout(wsListenerTimerId);
-    wsListenerTimerId = null;
+  if (bgPort) {
+    try {
+      bgPort.disconnect();
+    } catch (e) {
+      // ignore
+    }
+    bgPort = null;
   }
   if (pollTimerId) {
     clearTimeout(pollTimerId);

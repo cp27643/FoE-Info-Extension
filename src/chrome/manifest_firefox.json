@@ -46,8 +46,17 @@
       "js": ["wsProxy.js"],
       "run_at": "document_start",
       "world": "MAIN"
+    },
+    {
+      "matches": ["https://*.forgeofempires.com/*"],
+      "include_globs": ["*forgeofempires.com/game*"],
+      "js": ["wsBridge.js"],
+      "run_at": "document_start"
     }
   ],
+  "background": {
+    "scripts": ["background.js"]
+  },
   "web_accessible_resources": [
     {
       "resources": ["browser-polyfill.js"],

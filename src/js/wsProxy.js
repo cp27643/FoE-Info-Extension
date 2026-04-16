@@ -30,12 +30,7 @@
   if (window.__foeInfoWsProxyInstalled) return;
   window.__foeInfoWsProxyInstalled = true;
 
-  // ── Passive interception queue ────────────────────────────────────────────
-  // GBG messages for the monitor
-  window.__foeInfoWsMessages = [];
-
   // ── Shared state ──────────────────────────────────────────────────────────
-  var gameSocket = null;
   var observedSockets = new WeakSet();
   var originalWsSend = WebSocket.prototype.send;
 
@@ -47,14 +42,26 @@
       var data = JSON.parse(evt.data);
       var messages = Array.isArray(data) ? data : [data];
 
+      var gbgBatch = [];
       for (var i = 0; i < messages.length; i++) {
         var msg = messages[i];
         if (!msg || !msg.requestClass) continue;
 
         // GBG monitor: capture Battleground messages
         if (msg.requestClass.indexOf('Battleground') !== -1) {
-          window.__foeInfoWsMessages.push(msg);
+          gbgBatch.push(msg);
         }
+      }
+
+      // Push batch to extension via postMessage (picked up by wsBridge.js)
+      if (gbgBatch.length > 0) {
+        window.postMessage(
+          {
+            type: 'foe-info-ws-gbg',
+            payload: JSON.stringify(gbgBatch),
+          },
+          window.location.origin,
+        );
       }
     } catch (e) {
       // Ignore non-JSON WebSocket messages
@@ -66,7 +73,6 @@
     // Capture the game's WebSocket reference
     if (!observedSockets.has(this)) {
       observedSockets.add(this);
-      gameSocket = this;
       this.addEventListener('message', onWsMessage, {
         capture: false,
         passive: true,
@@ -75,11 +81,6 @@
     }
 
     return originalWsSend.call(this, data);
-  };
-
-  // ── Public API: check if WS is ready ─────────────────────────────────────
-  window.__foeInfoWsReady = function () {
-    return !!(gameSocket && gameSocket.readyState === WebSocket.OPEN);
   };
 
   console.log('[FoE-Info wsProxy] WebSocket proxy installed (passive mode)');
